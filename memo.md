@@ -1,8 +1,8 @@
-// Webの資産も使えない。が、あれは仕組みがキモいのでいらん
-// ライブ配信はできるし。というかこのひとにHTTP接続できればいいのでは？
 // 並列コンパイル・高速(差分)コンパイルしたい。静的型付けでコンパイルできて高速実行したい
+// ボドゲ作ったり遊んだりできる？Gpuの実験もできる？言葉の解釈もできる？
 
 ## Grammar
+コンピュータでも変更しやすくて、制御フローがわかりやすくて一貫性のある言語
 ```
 math := fn () -> Module {
   Newable := trait { new := fn() -> Self; }
@@ -48,20 +48,23 @@ sum := fn(T: Addable) -> fn(x: T, y: T) -> T {
 }
 res := sum[i32](0, 10)
 
-// 略記(↑に展開される(といいな))
-sum := fn(T: Addable)(x: T, y: T) -> T {
-  result := T{0}
-  for (i := range(x, y)) result += i;
-  result
-}
-res := sum(0, 10);
+// 一般的な if for while return がある
+x := if x {} else {}
+for x := range(10) {}
+if x { return 10 }
+while x { break; }
 
-
-// bou は Bound 型の変数
-bou := mut x := 4;
-// boubou
-boubou := bou := x := 4
-main := fn();
+// 最終的なコードには存在しないが、解釈器には存在する型と構文
+// コード(AST)を受け取ってコード(AST)を出力する所なので、変な状態になっても問題なし。
+T := @token { "x" };
+E := @expr {};
+B := @bind { T , expr {} };
+S := @stmt {};
+SC := @scope {};
+// return とか break とかやばい...
+I := @if { };
+F := @for { };
+W := @while { };
 
 // import
 axis := import rust
@@ -69,7 +72,6 @@ np := import python.numpy
 color := import nodejs.color
 
 // 内部的にはラッパになっている気がする
-if Some(x) := np.random.seed(0) {
-
-}
+x := np.random.seed(0)
+// nullの場合も続けてCallできそう
 ```
