@@ -1,23 +1,19 @@
-use clap;
+use clap::Parser;
 use std::env;
 use std::fs;
 use std::io::prelude::*;
 use std::path::Path;
 use std::process;
 
-const DEFAULT_WORK_DIR: &'static str = "./work/";
-const WORK_DIR_OPTION: &'static str = "work_dir";
-fn parse_command_line_options() -> clap::ArgMatches {
-  clap::Command::new("Yuni")
-    .arg(
-      clap::Arg::new(WORK_DIR_OPTION)
-        .short('w')
-        .help(&*format!("{WORK_DIR_OPTION} (default: {DEFAULT_WORK_DIR})")),
-    )
-    .get_matches()
+#[derive(clap::Parser, Debug)]
+#[clap(name = "Yuni")]
+struct CommandLineArgs {
+  #[clap(short, long, default_value = "./work/")]
+  work_dir: String,
 }
 
-fn setup_work_dir(work_dir: &Path) -> std::io::Result<()> {
+fn setup_work_dir(work_dir_str: &str) -> std::io::Result<()> {
+  let work_dir = Path::new(work_dir_str);
   if !work_dir.exists() {
     fs::create_dir_all(work_dir)?;
   }
@@ -25,15 +21,9 @@ fn setup_work_dir(work_dir: &Path) -> std::io::Result<()> {
   Ok(())
 }
 
-fn generate_code(content: &str) -> std::io::Result<()> {
-  let mut file = fs::File::create("main.rs")?;
-  let code = format!("fn main() {{  println!(\"{content}\"); }}");
-  println!("{}", code);
-  file.write_all(code.as_bytes())?;
-  Ok(())
-}
-
-fn execute_code() {
+fn execute(code: &str) {
+  let file = fs::File::create("main.rs");
+  file.unwrap().write_all(code.as_bytes()).ok();
   let compile = process::Command::new("rustc")
     .arg("main.rs")
     .output()
@@ -48,17 +38,14 @@ fn execute_code() {
 }
 
 fn main() {
-  let matches = parse_command_line_options();
-  let work_dir = Path::new(
-    matches
-      .value_of(WORK_DIR_OPTION)
-      .unwrap_or(DEFAULT_WORK_DIR),
-  );
-  setup_work_dir(work_dir).ok();
+  let args = CommandLineArgs::parse();
+  setup_work_dir(&args.work_dir).ok();
   loop {
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).ok();
-    generate_code(&input.trim()).ok();
-    execute_code();
+    let content = input.trim();
+    let code = format!("fn main() {{  println!(\"{content}\"); }}");
+    println!("{}", code);
+    execute(&code);
   }
 }
