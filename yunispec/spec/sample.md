@@ -9,45 +9,51 @@
 // x := np.random.seed(0) // nullの場合も続けてCallできそう. Option[]
 io := use yuni.std.io; // 再帰が書けないので依存関係がDAGになる(ようにuse)
 math := struct () impl {
-  ::Vec3 := struct (x: f32, y: f32, z: f32, w: f32) impl {
+  f1 := mut fn () {};
+  // ループ。相互参照でわない
+  f2 := fn () { f1(); };
+  f1 = mut fn () { f2(); };
+  // 再帰が書けてしまわない
+  f3 := mut fn (x: i32) i32 { 0 };
+  f3 = mut fn (x: i32) i32 { f3(10) };
+  pub Vec3 := struct (x: f32, y: f32, z: f32, _opt: f32) impl {
     // Self はここの定義 + データ(x,y,z) の型.
     // impl句は Self で囲う. { Self := @magic; impl{} ; Self }
-    ::new := fn (x, y, z: f32, _opt: f32 = 0.0) Self(x, y, z, _opt: _opt);
-    ::zero := new(0.0, 0.0, 0.0);
-    ::one := new(1.0, 1.0, 1.0);
+    pub new := fn (x: f32, y: f32, z: f32, _opt: f32 = 0.0) Self(x, y, z, _opt: _opt);
+    pub zero := new(0.0, 0.0, 0.0);
+    pub one := new(1.0, 1.0, 1.0);
     // [type]? { } 形式でも, 好きな方法で。
-    ::add := fn (lhs, rhs: Self) { lhs.x + rhs.x };
-    ::sub := fn (lhs, rhs: Self) f32 { 0; lhs.x - rhs.x };
-    ::mul := fn (lhs, rhs: Self) lhs.x * rhs.x;
-    ::`+` := add;
-    ::`+=` := fn (lhs: mut Self, rhs: Self) { lhs.x += rhs.x; };
-    // x += y; -> x@type::`+=`(x, y); と解釈される(型情報を持っているので可能)
-    // x.add(y) -> x@type::add(x, y);
-    // invalid
-    // if true ::f := 10 else ::g := 10;
-    // if true f := 10 else g := 10;
-    5
+    pub add := fn (self: Self, rhs: Self) { lhs.x + rhs.x };
+    pub sub := fn (self: Self, rhs: Self) f32 { 0; lhs.x - rhs.x };
+    pub mul := fn (self: Self, rhs: Self) lhs.x * rhs.x;
+    pub `+` := add;
+    pub `+=` := fn (self: mut Self, rhs: Self) { lhs.x += rhs.x; };
+    // x += y; -> x@type.`+=`(x, y); と解釈される(型情報を持っているので可能)
+    // x.add(y) -> x@type.add(x, y);
   };
-  ::Vec4 := struct (x, y, z: f32, _opt: f32 = 0.0) impl {
-    ::new: fn (x, y, z, w: f32) Self(x, y, z, w);
+  pub Vec4 := struct (x, y, z: f32, _opt: f32 = 0.0) impl {
+    pub new := fn (x, y, z, w: f32) Self(x, y, z, w);
   };
   // 循環参照になるので後から定義できない(必要ならY-Convと同様にimplに分ければいい)
   // ::Vec3::toVec4 := fn (lhs: Self) Vec4::new(lhs.x, lhs.y, lhs.z, 0.0);
 
   // trait. Self は AddableだがSuperのものを指す
-  ::Addable := trait (`+`: fn (lhs, rhs: Self) Self, count: usize := 0.0);
+  pub Addable := trait (
+    `+`: fn (self: Self, rhs: Self) Self,
+    count: usize := 0.0
+  );
   // 返り値を書かないメリット
   // []で呼び出すと一度生成した値をずっと参照して使用できる
-  sum := fn (T: ::Addable) fn (x, y : T) {
+  sum := fn (T: ::Addable) fn (x, y : T) T {
     result := mut x;
     for i in range(x, y) result += i;
     result
   };
+  // 無への代入式
   io.print(sum[i32](0, 10));
-
   // []で呼び出すと一度生成した値をずっと参照して使用するので同一
   // メモ化としても使える. 参照カウントが0になると消える(のでDeallocできるし、更新できる)
-  ::Rect := fn (T: Type) {
+  pub Rect := fn (T: Type) {
     // [] で実行すると新規追加時一度だけprintされる
     io.print("executed");
     struct (x: T) {} impl {}
@@ -63,32 +69,43 @@ math := struct () impl {
   x := if x 0.0 else if y 0.0 else { 3.0 };
   // [break xor continue] 型. break is [[nodiscard]] !
   assert(continue == {});
-  for x in range(10) { print(x); if x == 10 break }
-  { r := range(10); rx := mut r.begin();
-  loop {
-    if rx == r.end break
-    else {
-      { x := *rx; print(x); }
-      if x <= 4 { rx ++; } else break
-    }
-  }}
-  Option := fn (T:Type) union ((), (some: T)) impl {
-    ::has := fn (self: Self) bool {
-      match self {
-        () => false,
-        (some) => true
+  for x in range(10) { print(x); if x == 10 break };
+  {
+    r := range(10); rx := mut r.begin();
+    loop {
+      if rx == r.end break
+      else {
+        { x := *rx; print(x); }
+        if x <= 4 { rx ++; } else break
       }
     }
   };
+  XxorY := union (x: i32, y: i32);
+  x_xor_y := XxorY(x: 10);
+  Option := fn (T:Type) union (none: Unit, some: T) impl {
+    pub has := fn (self: Self) bool {
+      match self {
+      }
+    }
+    pub None := Self(none: {});
+    pub Some := fn(some: T) Self(some: T);
+  };
+  x := Option[i32]::Some(0);
+  x = Option[i32]::None;
 
+  Color := enum (
+    Red = 0,
+    Blue,
+    Green = 0, // invalid ?
+    Unknown,
+  );
   // todo: list, tree, ...
-  ::
 }
 ```
 
 ## 競プロコード例
 ```rust
-std := import yuni.std[];
+std := use yuni.std;
 read_int := () i32 {
   some { std.io.input.int() }
   else { std.io.output.error("invalid std.io.input.int") ; 0 }
