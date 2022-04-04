@@ -25,9 +25,11 @@ fn setup_work_dir(work_dir: &Path) -> std::io::Result<()> {
   Ok(())
 }
 
-fn generate_code() -> std::io::Result<()> {
+fn generate_code(content: &str) -> std::io::Result<()> {
   let mut file = fs::File::create("main.rs")?;
-  file.write_all(b"fn main() { println!(\"Hello, world!\"); } \n")?;
+  let code = format!("fn main() {{  println!(\"{content}\"); }}");
+  println!("{}", code);
+  file.write_all(code.as_bytes())?;
   Ok(())
 }
 
@@ -53,6 +55,10 @@ fn main() {
       .unwrap_or(DEFAULT_WORK_DIR),
   );
   setup_work_dir(work_dir).ok();
-  generate_code().ok();
-  execute_code();
+  loop {
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).ok();
+    generate_code(&input.trim()).ok();
+    execute_code();
+  }
 }
