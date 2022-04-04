@@ -4,6 +4,7 @@ use std::fs;
 use std::io::prelude::*;
 use std::path::Path;
 use std::process;
+use tempfile;
 
 #[derive(clap::Parser, Debug)]
 #[clap(name = "Yuni")]
@@ -21,7 +22,7 @@ pub fn setup_work_dir(work_dir_str: &str) -> std::io::Result<()> {
   Ok(())
 }
 
-pub fn execute(code: &str) -> String {
+pub fn execute(code: &str, stdin: &str) -> String {
   let file = fs::File::create("main.rs");
   file.unwrap().write_all(code.as_bytes()).ok();
   let compile = process::Command::new("rustc")
@@ -31,7 +32,11 @@ pub fn execute(code: &str) -> String {
   if !compile.status.success() {
     return String::from("");
   }
+  let mut tmpfile = tempfile::tempfile().unwrap();
+  write!(tmpfile, "{stdin}").unwrap();
+  tmpfile.seek(std::io::SeekFrom::Start(0)).unwrap();
   let executed = process::Command::new("./main")
+    .stdin(tmpfile)
     .output()
     .expect("failed to execute process");
   String::from_utf8(executed.stdout).unwrap_or(String::from(""))

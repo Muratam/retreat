@@ -8,8 +8,17 @@ fn main() {
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).ok();
     let content = input.trim();
-    let code = format!("fn main() {{  println!(\"{content}\"); }}");
-    println!("{}", code);
-    cli::execute(&code);
+    let code = format!(
+      "
+use std::io;
+fn main() {{
+  let mut input = String::new();
+  std::io::stdin().read_line(&mut input).ok();
+  println!(\"input: {{input}}\");
+  println!(\"content: {content}\");
+}}"
+    );
+    println!("{code}");
+    println!("{}", cli::execute(&code, "input kamone"));
   }
 }
