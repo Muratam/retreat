@@ -30,7 +30,7 @@ pub fn execute(code: &str, stdin: &str) -> String {
     .output()
     .expect("failed to execute process");
   if !compile.status.success() {
-    return String::from("");
+    return String::from_utf8(compile.stderr).unwrap_or(String::from("failed to compile"));
   }
   let mut tmpfile = tempfile::tempfile().unwrap();
   write!(tmpfile, "{stdin}").unwrap();
