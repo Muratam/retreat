@@ -30,6 +30,7 @@ impl ToString for Func {
     let name = &self.name;
     result.push_str(&format!("fn {name}() {{\n"));
     for stmt in &self.body {
+      result.push_str("  ");
       result.push_str(&stmt.stmt);
       result.push_str("\n");
     }

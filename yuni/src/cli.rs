@@ -32,6 +32,10 @@ pub fn execute(code: &str, stdin: &str) -> String {
   if !compile.status.success() {
     return String::from_utf8(compile.stderr).unwrap_or(String::from("failed to compile"));
   }
+  print!(
+    "{}",
+    String::from_utf8(compile.stdout).unwrap_or(String::from(""))
+  );
   let mut tmpfile = tempfile::tempfile().unwrap();
   write!(tmpfile, "{stdin}").unwrap();
   tmpfile.seek(std::io::SeekFrom::Start(0)).unwrap();
