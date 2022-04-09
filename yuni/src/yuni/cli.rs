@@ -1,9 +1,6 @@
-pub use clap::Parser;
-use std::env;
-use std::fs;
+use super::*;
+
 use std::io::prelude::*;
-use std::path::Path;
-use std::process;
 use tempfile;
 
 #[derive(clap::Parser, Debug)]
@@ -12,20 +9,25 @@ pub struct CommandLineArgs {
   #[clap(short, long, default_value = "./work/")]
   pub work_dir: String,
 }
+impl CommandLineArgs {
+  pub fn parse() -> Self {
+    clap::Parser::parse()
+  }
+}
 
 pub fn setup_work_dir(work_dir_str: &str) -> std::io::Result<()> {
-  let work_dir = Path::new(work_dir_str);
+  let work_dir = std::path::Path::new(work_dir_str);
   if !work_dir.exists() {
-    fs::create_dir_all(work_dir)?;
+    std::fs::create_dir_all(work_dir)?;
   }
-  env::set_current_dir(work_dir)?;
+  std::env::set_current_dir(work_dir)?;
   Ok(())
 }
 
 pub fn execute(code: &str, stdin: &str) -> String {
-  let file = fs::File::create("main.rs");
+  let file = std::fs::File::create("main.rs");
   file.unwrap().write_all(code.as_bytes()).ok();
-  let compile = process::Command::new("rustc")
+  let compile = std::process::Command::new("rustc")
     .arg("main.rs")
     .output()
     .expect("failed to execute process");
@@ -39,7 +41,7 @@ pub fn execute(code: &str, stdin: &str) -> String {
   let mut tmpfile = tempfile::tempfile().unwrap();
   write!(tmpfile, "{stdin}").unwrap();
   tmpfile.seek(std::io::SeekFrom::Start(0)).unwrap();
-  let executed = process::Command::new("./main")
+  let executed = std::process::Command::new("./main")
     .stdin(tmpfile)
     .output()
     .expect("failed to execute process");
