@@ -1,5 +1,33 @@
 use super::*;
 
+/*
+// とりあえず小学生レベルの算数から教えていきたい。
+// 「~によると」があるので、軽率にstring literal を使ってもいいかも
+- "1" := if "0" "succ"
+- "2" := if "1" "succ"
+- ...
+- "9" := if "8" "succ"
+- "10" := if "9" "succ"
+- ...
+- "101" := if "100" "succ"
+- "+" := State
+- <+> := Symbol // 動詞の引数には名前をつける。どういう意図で注釈するか。
+- "3" := if "1" "+" <+> "2"
+- "3" := if "2" "+" <+> "1"
+- "" :=  if "1" + // "1" が足されているという状態にはなれるが、注意の先がないからあまり意味のない構文になっている。
+...
+("succ"_able という集合に "1" "2" ... は自動で入る)
+- "5" := "4" "+" <+> ??
+  - 絶対にそうではないが、多分そう。導けるはず。
+  - 2桁の足し算などができるようになってきたら、そのうち内部i32とつなげる
+  - 縮約規則もメタ的に覚えていく(疑問に抱く前に解決・推論できるようになる)。
+
+
+
+
+
+
+*/
 // そのシンボルが何の概念を表しているか
 #[derive(std::fmt::Debug)]
 pub enum Represent {
@@ -44,17 +72,3 @@ impl SymbolManager {
     self.word_memory.get(word).map(|x| x.clone())
   }
 }
-
-// I am happy to join [with you today] in [what will go down in history
-//   as the greatest demonstration for freedom in the history of our nation].
-
-// He ate the dog.
-// -> "He" "Ate" "The" "Dog" のシンボルに関して(+ 時間があれば: 編集距離探索もしてスペルミスを見逃さないようにして)
-//   -> 「「He」という単語が「一般的に」表しているなにか」にまずアクセスが入る / (新概念の場合は別処理?)
-//   -> Ate -[過去形]- Eat
-//     -> 「過去形」は、「過去」としてイメージするものが違うかもしれないのでシンボル生成させる
-//   -> TODO: He と he は同じ単語で、あくまでも綴上の問題で最終的には認識して欲しいが、今はめんどうなので He Ate The Dog に ?
-// -> SVO / SVOC にマッチするものを探す
-//   -> S:He / V:Eat(<- [Ate, Eats]) / The Doc
-// -> 前提知識モジュール(He == he) / eats == eat / ate = eat + 過去 :: ここらへんは前提知識辞書が必要
-//
