@@ -165,7 +165,8 @@ _optional_attr_table = {
     "@ ^=": "__ixor__",
     "@ |=": "__ior__",
 }
-
+_rev_optional_attr_table = {}
+for k, v in _optional_attr_table.items(): _rev_optional_attr_table[v] = k
 class YuniExpr:
     def _pack(type, value):
         return {
@@ -302,13 +303,6 @@ class ObjectProxy:
         self._obj_id = obj_id
         self._env_id = env_id
         self._env = env
-        # optional methods
-        for k, v in _optional_attr_table.items():
-            def impl_with_k(k):
-                def impl(*args):
-                    return self.__call_attr(k, *args)
-                return impl
-            self.__setattr__(v, impl_with_k(k))
 
     def __del__(self):
         # FIXME:
@@ -342,3 +336,44 @@ class ObjectProxy:
             raise Exception(f"Cannot Call {attr_name}")
     def __repr__(self):
         return self.__str__()
+    # NOTE: __set_attr__ で上書きするとoperator override が無視されるので愚直に書く
+    def __add__(self, *args): return self.__call_attr(_rev_optional_attr_table["__add__"], *args)
+    def __dir__(self, *args): return self.__call_attr(_rev_optional_attr_table["__dir__"], *args)
+    def __str__(self, *args): return self.__call_attr(_rev_optional_attr_table["__str__"], *args)
+    def __getitem__(self, *args): return self.__call_attr(_rev_optional_attr_table["__getitem__"], *args)
+    def __setitem__(self, *args): return self.__call_attr(_rev_optional_attr_table["__setitem__"], *args)
+    def __contains__(self, *args): return self.__call_attr(_rev_optional_attr_table["__contains__"], *args)
+    def __add__(self, *args): return self.__call_attr(_rev_optional_attr_table["__add__"], *args)
+    def __sub__(self, *args): return self.__call_attr(_rev_optional_attr_table["__sub__"], *args)
+    def __mul__(self, *args): return self.__call_attr(_rev_optional_attr_table["__mul__"], *args)
+    def __matmul__(self, *args): return self.__call_attr(_rev_optional_attr_table["__matmul__"], *args)
+    def __truediv__(self, *args): return self.__call_attr(_rev_optional_attr_table["__truediv__"], *args)
+    def __mod__(self, *args): return self.__call_attr(_rev_optional_attr_table["__mod__"], *args)
+    def __pow__(self, *args): return self.__call_attr(_rev_optional_attr_table["__pow__"], *args)
+    def __lshift__(self, *args): return self.__call_attr(_rev_optional_attr_table["__lshift__"], *args)
+    def __rshift__(self, *args): return self.__call_attr(_rev_optional_attr_table["__rshift__"], *args)
+    def __and__(self, *args): return self.__call_attr(_rev_optional_attr_table["__and__"], *args)
+    def __xor__(self, *args): return self.__call_attr(_rev_optional_attr_table["__xor__"], *args)
+    def __or__(self, *args): return self.__call_attr(_rev_optional_attr_table["__or__"], *args)
+    def __lt__(self, *args): return self.__call_attr(_rev_optional_attr_table["__lt__"], *args)
+    def __le__(self, *args): return self.__call_attr(_rev_optional_attr_table["__le__"], *args)
+    def __eq__(self, *args): return self.__call_attr(_rev_optional_attr_table["__eq__"], *args)
+    def __ne__(self, *args): return self.__call_attr(_rev_optional_attr_table["__ne__"], *args)
+    def __ge__(self, *args): return self.__call_attr(_rev_optional_attr_table["__ge__"], *args)
+    def __gt__(self, *args): return self.__call_attr(_rev_optional_attr_table["__gt__"], *args)
+    def __not__(self, *args): return self.__call_attr(_rev_optional_attr_table["__not__"], *args)
+    def __inv__(self, *args): return self.__call_attr(_rev_optional_attr_table["__inv__"], *args)
+    def __pos__(self, *args): return self.__call_attr(_rev_optional_attr_table["__pos__"], *args)
+    def __neg__(self, *args): return self.__call_attr(_rev_optional_attr_table["__neg__"], *args)
+    def __iadd__(self, *args): return self.__call_attr(_rev_optional_attr_table["__iadd__"], *args)
+    def __isub__(self, *args): return self.__call_attr(_rev_optional_attr_table["__isub__"], *args)
+    def __imul__(self, *args): return self.__call_attr(_rev_optional_attr_table["__imul__"], *args)
+    def __imatmul__(self, *args): return self.__call_attr(_rev_optional_attr_table["__imatmul__"], *args)
+    def __itruediv__(self, *args): return self.__call_attr(_rev_optional_attr_table["__itruediv__"], *args)
+    def __imod__(self, *args): return self.__call_attr(_rev_optional_attr_table["__imod__"], *args)
+    def __ipow__(self, *args): return self.__call_attr(_rev_optional_attr_table["__ipow__"], *args)
+    def __ilshift__(self, *args): return self.__call_attr(_rev_optional_attr_table["__ilshift__"], *args)
+    def __irshift__(self, *args): return self.__call_attr(_rev_optional_attr_table["__irshift__"], *args)
+    def __iand__(self, *args): return self.__call_attr(_rev_optional_attr_table["__iand__"], *args)
+    def __ixor__(self, *args): return self.__call_attr(_rev_optional_attr_table["__ixor__"], *args)
+    def __ior__(self, *args): return self.__call_attr(_rev_optional_attr_table["__ior__"], *args)
