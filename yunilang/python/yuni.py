@@ -43,11 +43,9 @@ class YuniProxyModule:
         in_packet = json.dumps(YuniExpr.from_get_attr_expr(object_proxy, name, self._env))
         return self._call(in_packet)
 
-        # object = self.env.get_object(object_proxy.obj_id, object_proxy.env_id)
-        # return object.__get_attr__(name)
-        # in_packet = json.dumps(YuniExpr.from_import_expr(import_name))
-        # return self._call(in_packet)
-
+    def call_invoke(self, object_proxy, args, kwds):
+        in_packet = json.dumps(YuniExpr.from_invoke_expr(object_proxy, args, kwds, self._env))
+        return self._call(in_packet)
 
     def __getattr__(self, name):
         return self._call_import(name)

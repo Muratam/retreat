@@ -146,13 +146,18 @@ class YuniExpr:
             "attr_name": attr_name,
         })
 
-    # TODO:
-    # def from_invoke_expr(object, args, options):
-    #     return YuniExpr._pack(YuniExprType.Invoke, {
-    #         "object": object,
-    #         "args": args,
-    #         "options": options,
-    #     })
+    def from_invoke_expr(object, args, kwds, env):
+        yuni_args = []
+        for arg in args:
+            yuni_args.append(YuniObject.from_python_object(arg, env))
+        yuni_kwds = {}
+        for k, v in kwds:
+            yuni_kwds[k] = YuniObject.from_python_object(v, env)
+        return YuniExpr._pack(YuniExprType.Invoke, {
+            "object": YuniObject.from_python_object(object, env),
+            "args": yuni_args,
+            "kwds": yuni_kwds,
+        })
 
     def interpret(yuni_expr, env, raise_exception=False):
         try:
@@ -165,12 +170,18 @@ class YuniExpr:
             elif expr_type == YuniExprType.Import:
                 return env.do_import(value)
             elif expr_type == YuniExprType.GetAttr:
-                    object = YuniObject.interpret(value["object"], env, raise_exception)
-                    attr_name = value["attr_name"]
-                    return object.__getattribute__(attr_name)
-            # TODO:
-            # elif expr_type == YuniExprType.Invoke:
-            #     object = env.get_object()
+                object = YuniObject.interpret(value["object"], env, raise_exception)
+                attr_name = value["attr_name"]
+                return object.__getattribute__(attr_name)
+            elif expr_type == YuniExprType.Invoke:
+                object = YuniObject.interpret(value["object"], env, raise_exception)
+                args = []
+                for arg in value["args"]:
+                    args.append(YuniObject.interpret(arg, env, raise_exception))
+                kwds = {}
+                for k, v in value["kwds"]:
+                    kwds[k] = YuniObject.interpret(v, env, raise_exception)
+                return object.__call__(*args, **kwds)
         except Exception as exception:
             if raise_exception: raise exception
             else: return exception
@@ -183,10 +194,10 @@ class LocalResolver:
     def call_get_attr(self, object_proxy, name):
         object = self.env.get_object(object_proxy.obj_id, object_proxy.env_id)
         return object.__get_attr__(name)
-    # TODO:
-    # def call_invoke(self, object_proxy, name):
-    #     object = self.env.get_object(object_proxy.obj_id, object_proxy.env_id)
-    #     return object.__get_attr__(name)
+
+    def call_invoke(self, object_proxy, args, kwds):
+        object = self.env.get_object(object_proxy.obj_id, object_proxy.env_id)
+        return object.__call__(*args, **kwds)
 
 class Environment:
     def __init__(self, id):
@@ -242,7 +253,7 @@ class Environment:
         return f"{11}"
 
 class ObjectProxy:
-    # TODO: エラーを見やすいようにOptionalで設定する
+    # TODO: 標準出力を見やすいようにOptionalで設定する
     def __init__(self, obj_id, env_id, env):
         self.obj_id = obj_id
         self.env_id = env_id
@@ -253,7 +264,7 @@ class ObjectProxy:
 
     # str
     def __str__(self):
-        return f"Proxy Object {self.obj_id} @ {self.env_id}"
+        return f"<<Proxy Object {self.obj_id} @ {self.env_id}>>"
     def __repr__(self):
         return self.__str__(self)
 
@@ -268,8 +279,9 @@ class ObjectProxy:
     # attr
     def __getattr__(self, __name):
         return self.env.resolver_by_env_id[self.env_id].call_get_attr(self, __name)
-    # def __call__(self, *args: Any, **kwds: Any) -> Any:
-    #     pass
+    def __call__(self, *args, **kwds):
+        return self.env.resolver_by_env_id[self.env_id].call_invoke(self, args, kwds)
+
     # def __dir__(self) -> Iterable[str]:
     #     pass
     # operators
