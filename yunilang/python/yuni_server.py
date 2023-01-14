@@ -7,15 +7,14 @@ from yuni_parser import Environment
 
 async def server(websocket):
     env = Environment(str(uuid.uuid4()))
-    while True:
-        try:
-            async for in_packet in websocket:
-                output = env.from_packet(in_packet, raise_exception=False)
-                out_packet = env.to_packet(output)
-                await websocket.send(out_packet)
-        except Exception as e:
-            print(e)
-            return
+    try:
+        async for in_packet in websocket:
+            output = env.from_packet(in_packet, raise_exception=False)
+            out_packet = env.to_packet(output)
+            await websocket.send(out_packet)
+    except Exception as e:
+        print(e)
+        return
 
 def main():
     if len(sys.argv) <= 1:
