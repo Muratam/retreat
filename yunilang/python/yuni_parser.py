@@ -80,11 +80,11 @@ class YuniObject:
             if object_type == YuniObjectType.Primitive:
                 return value
             elif object_type == YuniObjectType.Array:
-                return [env.interpret(x, env, raise_exception) for x in value]
+                return [YuniObject.interpret(x, env, raise_exception) for x in value]
             elif object_type == YuniObjectType.Table:
                 result = {}
                 for k, v in value.items():
-                    result[k] = env.interpret(v, env, raise_exception)
+                    result[k] = YuniObject.interpret(v, env, raise_exception)
                 return result
             elif object_type == YuniObjectType.Object:
                 return env.get_object(value["obj_id"], value["env_id"])
@@ -258,32 +258,44 @@ class ObjectProxy:
         self.obj_id = obj_id
         self.env_id = env_id
         self.env = env
+
     def __del__(self):
         # FIXME:
         pass
 
-    # str
-    def __str__(self):
-        return f"<<Proxy Object {self.obj_id} @ {self.env_id}>>"
-    def __repr__(self):
-        return self.__str__(self)
+    # util
+    def __get_resolver(self):
+        return self.env.resolver_by_env_id[self.env_id]
 
     # eq
     def __eq__(self, __o):
         if not isinstance(__o, ObjectProxy):
             return False
+        # FIXME: Struct的なものを比較できない
         return self.obj_id == __o.obj_id and self.env_id == __o.env_id
     def __ne__(self, __o):
         return not self.__eq__(__o)
 
     # attr
     def __getattr__(self, __name):
-        return self.env.resolver_by_env_id[self.env_id].call_get_attr(self, __name)
+        return self.__get_resolver().call_get_attr(self, __name)
     def __call__(self, *args, **kwds):
-        return self.env.resolver_by_env_id[self.env_id].call_invoke(self, args, kwds)
+        return self.__get_resolver().call_invoke(self, args, kwds)
 
-    # def __dir__(self) -> Iterable[str]:
-    #     pass
+    # optional methods
+    def __call_attr(self, attr_name, *args):
+        attr = self.__get_resolver().call_get_attr(self, attr_name)
+        if isinstance(attr, ObjectProxy):
+            return attr.__get_resolver().call_invoke(attr, args, {})
+        else:
+            raise Exception(f"Cannot Call {attr_name}")
+    def __dir__(self):
+        return self.__call_attr("__dir__")
+    def __str__(self):
+        return self.__call_attr("__str__")
+    def __repr__(self):
+        return self.__call_attr("__repr__")
+
     # operators
     # container
     # __getitem__ / __setitem__ / __delitem__ / __contains__
