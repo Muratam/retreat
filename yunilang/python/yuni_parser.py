@@ -124,6 +124,48 @@ _packet_root_type_pair = [
     (YuniExprType.Invoke, "invoke"),
 ]
 
+_optional_attr_table = {
+    "@ dir": "__dir__",
+    "@ str": "__str__",
+    "@ []": "__getitem__",
+    "@ []=": "__setitem__",
+    "@ in": "__contains__",
+    "@ +": "__add__",
+    "@ -": "__sub__",
+    "@ *": "__mul__",
+    "@ @": "__matmul__",
+    "@ /": "__truediv__",
+    "@ %": "__mod__",
+    "@ **": "__pow__",
+    "@ <<": "__lshift__",
+    "@ >>": "__rshift__",
+    "@ &": "__and__",
+    "@ ^": "__xor__",
+    "@ |": "__or__",
+    "@ <": "__lt__",
+    "@ <=": "__le__",
+    "@ ==": "__eq__",
+    "@ !=": "__ne__",
+    "@ >=": "__ge__",
+    "@ >": "__gt__",
+    "@ !": "__not__",
+    "@ ~": "__inv__",
+    "@ 0+": "__pos__",
+    "@ 0-": "__neg__",
+    "@ +=": "__iadd__",
+    "@ -=": "__isub__",
+    "@ *=": "__imul__",
+    "@ @=": "__imatmul__",
+    "@ /=": "__itruediv__",
+    "@ %=": "__imod__",
+    "@ **=": "__ipow__",
+    "@ <<=": "__ilshift__",
+    "@ >>=": "__irshift__",
+    "@ &=": "__iand__",
+    "@ ^=": "__ixor__",
+    "@ |=": "__ior__",
+}
+
 class YuniExpr:
     def _pack(type, value):
         return {
@@ -172,6 +214,8 @@ class YuniExpr:
             elif expr_type == YuniExprType.GetAttr:
                 object = YuniObject.interpret(value["object"], env, raise_exception)
                 attr_name = value["attr_name"]
+                if attr_name in _optional_attr_table:
+                    attr_name = _optional_attr_table[attr_name]
                 return object.__getattribute__(attr_name)
             elif expr_type == YuniExprType.Invoke:
                 object = YuniObject.interpret(value["object"], env, raise_exception)
@@ -193,7 +237,7 @@ class LocalResolver:
 
     def call_get_attr(self, object_proxy, name):
         object = self.env.get_object(object_proxy.obj_id, object_proxy.env_id)
-        return object.__get_attr__(name)
+        return object.__getattribute_(name)
 
     def call_invoke(self, object_proxy, args, kwds):
         object = self.env.get_object(object_proxy.obj_id, object_proxy.env_id)
@@ -258,6 +302,13 @@ class ObjectProxy:
         self.obj_id = obj_id
         self.env_id = env_id
         self.env = env
+        # optional methods
+        for k, v in _optional_attr_table.items():
+            def impl_with_k(k):
+                def impl(*args):
+                    return self.__call_attr(k, *args)
+                return impl
+            self.__setattr__(v, impl_with_k(k))
 
     def __del__(self):
         # FIXME:
@@ -289,15 +340,5 @@ class ObjectProxy:
             return attr.__get_resolver().call_invoke(attr, args, {})
         else:
             raise Exception(f"Cannot Call {attr_name}")
-    def __dir__(self):
-        return self.__call_attr("__dir__")
-    def __str__(self):
-        return self.__call_attr("__str__")
     def __repr__(self):
-        return self.__call_attr("__repr__")
-
-    # operators
-    # container
-    # __getitem__ / __setitem__ / __delitem__ / __contains__
-    # numbers
-    # __add__ / __sub__ / __mul__ ...
+        return self.__str__()
