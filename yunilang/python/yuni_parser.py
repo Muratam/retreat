@@ -57,7 +57,7 @@ class YuniObject:
             type_object == float) or (
             type_object == str) or (
             type_object == bool) or (
-            type_object == None):
+            object is None):
             return YuniObject.from_primitive(object)
         if type_object == list:
             return YuniObject.from_array(object, env)
@@ -151,8 +151,11 @@ class YuniExpr:
         elif expr_type == YuniExprType.GetAttr:
             object = YuniObject.interpret(value["object"], env)
             attr_name = value["attr_name"]
-            print(object, attr_name)
-            return object.__getattribute__(attr_name)
+            try:
+                return object.__getattribute__(attr_name)
+            except Exception as e:
+                print(e)
+                return None
         # TODO:
         # elif expr_type == YuniExprType.Invoke:
         #     object = env.get_object()

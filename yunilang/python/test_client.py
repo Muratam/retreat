@@ -2,7 +2,9 @@ import yuni
 import numpy
 np = yuni.py.numpy
 max = yuni.py.prelude.max
+mex = yuni.py.prelude.mex
 print(max)
+print(mex)
 # print(f"max(10, 20) = {max(10, 20)}")
 # print(dir(np))
 # import numpy as np
