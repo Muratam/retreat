@@ -8,7 +8,6 @@ class YuniObjectType(Enum):
     Array = auto()
     Table = auto()
     Object = auto()
-    Undefined = auto()
 
     def to_string(type):
         for pair in _yuni_object_type_pair:
@@ -50,11 +49,7 @@ class YuniObject:
         return YuniObject._pack(YuniObjectType.Table, yuni_table)
 
     def from_object(object, env):
-        id = env.register_object(object)
-        return YuniObject._pack(YuniObjectType.Object, {
-            "obj_id": id,
-            "env_id": env.id
-        })
+        return YuniObject._pack(YuniObjectType.Object, env.register_object(object))
 
     def from_python_object(object, env):
         type_object = type(object)
@@ -83,13 +78,15 @@ class YuniObject:
                 result[k] = env.interpret(v, env)
             return result
         elif object_type == YuniObjectType.Object:
-            return env.get_object(value["env_id"], value["obj_id"])
+            return env.get_object(value["obj_id"], value["env_id"])
         print(yuni_object, "not found")
         return None
 
 class YuniExprType(Enum):
+    GetEnvId = auto()
     Object = auto()
     Invoke = auto()
+    GetAttr = auto()
     Import = auto()
 
     def to_string(type):
@@ -105,10 +102,11 @@ class YuniExprType(Enum):
         return YuniExprType.Undefined
 
 _packet_root_type_pair = [
+    (YuniExprType.GetEnvId, "get_env_id"),
     (YuniExprType.Object, "object"),
-    (YuniExprType.Invoke, "invoke"),
     (YuniExprType.Import, "import"),
-    # (PacketType.StdOut, "stdout"),
+    (YuniExprType.GetAttr, "get_attr"),
+    (YuniExprType.Invoke, "invoke"),
 ]
 
 class YuniExpr:
@@ -117,29 +115,60 @@ class YuniExpr:
             "type": YuniExprType.to_string(type),
             "value": value
         }
+    def from_get_env_id_expr():
+        return YuniExpr._pack(YuniExprType.GetEnvId, None)
 
     def from_object_expr(object, env):
         yuni_object = YuniObject.from_python_object(object, env)
         return YuniExpr._pack(YuniExprType.Object, yuni_object)
 
-    def from_invoke_expr(function_invoke):
-        # TODO:
-        return YuniExpr._pack(YuniExprType.Invoke, function_invoke)
-
-    def from_import_expr(import_name: str):
+    def from_import_expr(import_name):
         return YuniExpr._pack(YuniExprType.Import, import_name)
+
+    def from_get_attr_expr(object, attr_name, env):
+        return YuniExpr._pack(YuniExprType.GetAttr, {
+            "object": YuniObject.from_python_object(object, env),
+            "attr_name": attr_name,
+        })
+
+    # TODO:
+    # def from_invoke_expr(object, args, options):
+    #     return YuniExpr._pack(YuniExprType.Invoke, {
+    #         "object": object,
+    #         "args": args,
+    #         "options": options,
+    #     })
 
     def interpret(yuni_expr, env):
         expr_type = YuniExprType.from_string(yuni_expr["type"])
         value = yuni_expr["value"]
-        if expr_type == YuniExprType.Object:
+        if expr_type == YuniExprType.GetEnvId:
+            return env.id
+        elif expr_type == YuniExprType.Object:
             return YuniObject.interpret(value, env)
         elif expr_type == YuniExprType.Import:
             return env.do_import(value)
-        elif expr_type == YuniExprType.Invoke:
-            # TODO:
-            pass
+        elif expr_type == YuniExprType.GetAttr:
+            object = YuniObject.interpret(value["object"], env)
+            attr_name = value["attr_name"]
+            print(object, attr_name)
+            return object.__getattribute__(attr_name)
+        # TODO:
+        # elif expr_type == YuniExprType.Invoke:
+        #     object = env.get_object()
         return value
+
+class LocalResolver:
+    def __init__(self, env):
+        self.env = env
+
+    def call_get_attr(self, object_proxy, name):
+        object = self.env.get_object(object_proxy.obj_id, object_proxy.env_id)
+        return object.__get_attr__(name)
+    # TODO:
+    # def call_invoke(self, object_proxy, name):
+    #     object = self.env.get_object(object_proxy.obj_id, object_proxy.env_id)
+    #     return object.__get_attr__(name)
 
 class Environment:
     def __init__(self, id):
@@ -147,15 +176,26 @@ class Environment:
             "prelude": builtins,
         }
         self._objects = {}
-        self._last_object_id = 0
+        self._last_obj_id = 0
         self.id = id
+        self.resolver_by_env_id = {
+            id: LocalResolver(self)
+        }
 
     def register_object(self, object):
+        if isinstance(object, ObjectProxy):
+            return {
+                "obj_id": object.obj_id,
+                "env_id": object.env_id
+            }
         # FIXME: [A , A] のようになったときに、二重登録してしまうので治す
         # FIXME: object の 削除もできればしておきたい
-        self._last_object_id += 1
-        self._objects[self._last_object_id] = object
-        return self._last_object_id
+        self._last_obj_id += 1
+        self._objects[self._last_obj_id] = object
+        return {
+            "obj_id": self._last_obj_id,
+            "env_id": self.id
+        }
 
     def get_object(self, obj_id, env_id):
         if self.id == env_id:
@@ -194,24 +234,25 @@ class ObjectProxy:
         pass
 
     # str
-    def __str__(self) -> str:
-        return f"{self.obj_id}@{self.env_id}"
+    def __str__(self):
+        return f"Proxy Object {self.obj_id} @ {self.env_id}"
     def __repr__(self):
         return self.__str__(self)
 
     # eq
-    def __eq__(self, __o: object) -> bool:
+    def __eq__(self, __o):
         if not isinstance(__o, ObjectProxy):
             return False
         return self.obj_id == __o.obj_id and self.env_id == __o.env_id
-    def __ne__(self, __o: object) -> bool:
-        return not self.__eq__(object)
+    def __ne__(self, __o):
+        return not self.__eq__(__o)
 
+    # attr
+    def __getattr__(self, __name):
+        return self.env.resolver_by_env_id[self.env_id].call_get_attr(self, __name)
     # def __call__(self, *args: Any, **kwds: Any) -> Any:
     #     pass
     # def __dir__(self) -> Iterable[str]:
-    #     pass
-    # def __getattr__(self, __name: str) -> Any:
     #     pass
     # operators
     # container
