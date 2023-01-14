@@ -92,8 +92,7 @@ class YuniObject:
                 exception = Exception(value)
                 if raise_exception: raise exception
                 else: return exception
-        except Exception:
-            exception = Exception(traceback.format_exc(None))
+        except Exception as exception:
             if raise_exception: raise exception
             else: return exception
         return None
@@ -172,8 +171,7 @@ class YuniExpr:
             # TODO:
             # elif expr_type == YuniExprType.Invoke:
             #     object = env.get_object()
-        except Exception:
-            exception = Exception(traceback.format_exc(None))
+        except Exception as exception:
             if raise_exception: raise exception
             else: return exception
         return value
