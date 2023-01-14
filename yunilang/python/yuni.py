@@ -25,7 +25,7 @@ class YuniProxyModule:
     async def _call_async(self, in_packet):
         await self._ws_loop.__anext__()
         out_packet = await self._ws_loop.asend(in_packet)
-        return self._env.from_packet(out_packet)
+        return self._env.from_packet(out_packet, raise_exception=True)
 
     def _call(self, in_packet):
         return asyncio.get_event_loop().run_until_complete(self._call_async(in_packet))

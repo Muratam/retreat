@@ -10,7 +10,7 @@ async def server(websocket):
     while True:
         try:
             async for in_packet in websocket:
-                output = env.from_packet(in_packet)
+                output = env.from_packet(in_packet, raise_exception=False)
                 out_packet = env.to_packet(output)
                 await websocket.send(out_packet)
         except Exception as e:

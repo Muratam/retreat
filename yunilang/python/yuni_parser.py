@@ -2,11 +2,13 @@ import json
 from enum import Enum, auto
 import importlib
 import builtins
+import traceback
 
 class YuniObjectType(Enum):
     Primitive = auto()
     Array = auto()
     Table = auto()
+    Exception = auto()
     Object = auto()
 
     def to_string(type):
@@ -25,6 +27,7 @@ _yuni_object_type_pair = [
     (YuniObjectType.Primitive, "primitive"),
     (YuniObjectType.Array, "array"),
     (YuniObjectType.Table, "table"),
+    (YuniObjectType.Exception, "exception"),
     (YuniObjectType.Object, "object"),
 ]
 
@@ -48,6 +51,9 @@ class YuniObject:
             yuni_table[k] = YuniObject.from_python_object(v, env)
         return YuniObject._pack(YuniObjectType.Table, yuni_table)
 
+    def from_exception(exception):
+        return YuniObject._pack(YuniObjectType.Exception, str(exception))
+
     def from_object(object, env):
         return YuniObject._pack(YuniObjectType.Object, env.register_object(object))
 
@@ -61,25 +67,35 @@ class YuniObject:
             return YuniObject.from_primitive(object)
         if type_object == list:
             return YuniObject.from_array(object, env)
-        if type_object == dict:
+        elif type_object == dict:
             return YuniObject.from_table(object, env)
+        elif isinstance(object, Exception):
+            return YuniObject.from_exception(object)
         return YuniObject.from_object(object, env)
 
-    def interpret(yuni_object, env):
-        object_type = YuniObjectType.from_string(yuni_object["type"])
-        value = yuni_object["value"]
-        if object_type == YuniObjectType.Primitive:
-            return value
-        elif object_type == YuniObjectType.Array:
-            return [env.interpret(x, env) for x in value]
-        elif object_type == YuniObjectType.Table:
-            result = {}
-            for k, v in value.items():
-                result[k] = env.interpret(v, env)
-            return result
-        elif object_type == YuniObjectType.Object:
-            return env.get_object(value["obj_id"], value["env_id"])
-        print(yuni_object, "not found")
+    def interpret(yuni_object, env, raise_exception=False):
+        try:
+            object_type = YuniObjectType.from_string(yuni_object["type"])
+            value = yuni_object["value"]
+            if object_type == YuniObjectType.Primitive:
+                return value
+            elif object_type == YuniObjectType.Array:
+                return [env.interpret(x, env, raise_exception) for x in value]
+            elif object_type == YuniObjectType.Table:
+                result = {}
+                for k, v in value.items():
+                    result[k] = env.interpret(v, env, raise_exception)
+                return result
+            elif object_type == YuniObjectType.Object:
+                return env.get_object(value["obj_id"], value["env_id"])
+            elif object_type == YuniObjectType.Exception:
+                exception = Exception(value)
+                if raise_exception: raise exception
+                else: return exception
+        except Exception:
+            exception = Exception(traceback.format_exc(None))
+            if raise_exception: raise exception
+            else: return exception
         return None
 
 class YuniExprType(Enum):
@@ -139,26 +155,27 @@ class YuniExpr:
     #         "options": options,
     #     })
 
-    def interpret(yuni_expr, env):
-        expr_type = YuniExprType.from_string(yuni_expr["type"])
-        value = yuni_expr["value"]
-        if expr_type == YuniExprType.GetEnvId:
-            return env.id
-        elif expr_type == YuniExprType.Object:
-            return YuniObject.interpret(value, env)
-        elif expr_type == YuniExprType.Import:
-            return env.do_import(value)
-        elif expr_type == YuniExprType.GetAttr:
-            object = YuniObject.interpret(value["object"], env)
-            attr_name = value["attr_name"]
-            try:
-                return object.__getattribute__(attr_name)
-            except Exception as e:
-                print(e)
-                return None
-        # TODO:
-        # elif expr_type == YuniExprType.Invoke:
-        #     object = env.get_object()
+    def interpret(yuni_expr, env, raise_exception=False):
+        try:
+            expr_type = YuniExprType.from_string(yuni_expr["type"])
+            value = yuni_expr["value"]
+            if expr_type == YuniExprType.GetEnvId:
+                return env.id
+            elif expr_type == YuniExprType.Object:
+                return YuniObject.interpret(value, env, raise_exception)
+            elif expr_type == YuniExprType.Import:
+                return env.do_import(value)
+            elif expr_type == YuniExprType.GetAttr:
+                    object = YuniObject.interpret(value["object"], env, raise_exception)
+                    attr_name = value["attr_name"]
+                    return object.__getattribute__(attr_name)
+            # TODO:
+            # elif expr_type == YuniExprType.Invoke:
+            #     object = env.get_object()
+        except Exception:
+            exception = Exception(traceback.format_exc(None))
+            if raise_exception: raise exception
+            else: return exception
         return value
 
 class LocalResolver:
@@ -212,9 +229,9 @@ class Environment:
         self._imports[name] =  __import__(name)
         return self._imports[name]
 
-    def from_packet(self, packet):
+    def from_packet(self, packet, raise_exception):
         yuni_expr = json.loads(packet)
-        return YuniExpr.interpret(yuni_expr, self)
+        return YuniExpr.interpret(yuni_expr, self, raise_exception)
 
     def to_packet(self, python_object):
         yuni_expr = YuniExpr.from_object_expr(python_object, self)
