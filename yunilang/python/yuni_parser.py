@@ -233,14 +233,14 @@ class YuniExpr:
 
 class LocalResolver:
     def __init__(self, env):
-        self.env = env
+        self._env = env
 
     def call_get_attr(self, object_proxy, name):
-        object = self.env.get_object(object_proxy.obj_id, object_proxy.env_id)
+        object = self._env.get_object(object_proxy._obj_id, object_proxy._env_id)
         return object.__getattribute_(name)
 
     def call_invoke(self, object_proxy, args, kwds):
-        object = self.env.get_object(object_proxy.obj_id, object_proxy.env_id)
+        object = self._env.get_object(object_proxy._obj_id, object_proxy._env_id)
         return object.__call__(*args, **kwds)
 
 class Environment:
@@ -258,8 +258,8 @@ class Environment:
     def register_object(self, object):
         if isinstance(object, ObjectProxy):
             return {
-                "obj_id": object.obj_id,
-                "env_id": object.env_id
+                "obj_id": object._obj_id,
+                "env_id": object._env_id
             }
         # FIXME: [A , A] のようになったときに、二重登録してしまうので治す
         # FIXME: object の 削除もできればしておきたい
@@ -297,11 +297,11 @@ class Environment:
         return f"{11}"
 
 class ObjectProxy:
-    # TODO: 標準出力を見やすいようにOptionalで設定する
+    # FIXME: 標準出力を見やすいようにOptionalで設定する
     def __init__(self, obj_id, env_id, env):
-        self.obj_id = obj_id
-        self.env_id = env_id
-        self.env = env
+        self._obj_id = obj_id
+        self._env_id = env_id
+        self._env = env
         # optional methods
         for k, v in _optional_attr_table.items():
             def impl_with_k(k):
@@ -316,14 +316,14 @@ class ObjectProxy:
 
     # util
     def __get_resolver(self):
-        return self.env.resolver_by_env_id[self.env_id]
+        return self._env.resolver_by_env_id[self._env_id]
 
     # eq
     def __eq__(self, __o):
         if not isinstance(__o, ObjectProxy):
             return False
         # FIXME: Struct的なものを比較できない
-        return self.obj_id == __o.obj_id and self.env_id == __o.env_id
+        return self._obj_id == __o._obj_id and self._env_id == __o._env_id
     def __ne__(self, __o):
         return not self.__eq__(__o)
 
