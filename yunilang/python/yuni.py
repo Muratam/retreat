@@ -1,6 +1,7 @@
 import asyncio
 import websockets
-from yuni_parser import Packet, Environment
+import json
+from yuni_parser import YuniExpr, Environment
 
 class YuniProxyObject:
     def __init__(self, module):
@@ -10,6 +11,7 @@ class YuniProxyModule:
     def __init__(self, port, hostname):
         self._port = port
         self._hostname = hostname
+        self._env = Environment(False)
         self._ws_loop = self._websocket_loop()
 
     async def _websocket_loop(self):
@@ -21,13 +23,13 @@ class YuniProxyModule:
     async def _call_async(self, in_packet):
         await self._ws_loop.__anext__()
         out_packet = await self._ws_loop.asend(in_packet)
-        return Environment().parse(out_packet)
+        return self._env.from_packet(out_packet)
 
     def _call(self, in_packet):
         return asyncio.get_event_loop().run_until_complete(self._call_async(in_packet))
 
     def _call_import(self, import_name):
-        in_packet = Packet.by_import_statement(import_name)
+        in_packet = json.dumps(YuniExpr.from_import_expr(import_name))
         return self._call(in_packet)
 
     def __getattr__(self, name):

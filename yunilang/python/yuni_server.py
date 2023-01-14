@@ -2,15 +2,15 @@ import sys
 import asyncio
 import urllib.parse
 import websockets
-from yuni_parser import Packet, Environment
+from yuni_parser import Environment
 
 async def server_echo(websocket):
-    env = Environment()
+    env = Environment(True)
     while True:
         try:
             async for in_packet in websocket:
-                output = env.parse(in_packet)
-                out_packet = Packet.by_python_object(output, env)
+                output = env.from_packet(in_packet)
+                out_packet = env.to_packet(output)
                 await websocket.send(out_packet)
         except Exception as e:
             print(e)

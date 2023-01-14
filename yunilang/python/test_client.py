@@ -1,9 +1,9 @@
 import yuni
 np = yuni.py.numpy
 print(np)
-print(yuni.py.prelude)
-max = yuni.py.prelude.max
-print(f"max(10, 20) = {max(10, 20)}")
+# print(yuni.py.prelude)
+# max = yuni.py.prelude.max
+# print(f"max(10, 20) = {max(10, 20)}")
 # print(dir(np))
 # import numpy as np
 # from yuni import numpy as np2
