@@ -1,5 +1,6 @@
 import asyncio
 import websockets
+import uuid
 import json
 from yuni_parser import YuniExpr, Environment
 
@@ -11,7 +12,7 @@ class YuniProxyModule:
     def __init__(self, port, hostname):
         self._port = port
         self._hostname = hostname
-        self._env = Environment(False)
+        self._env = Environment(str(uuid.uuid4()))
         self._ws_loop = self._websocket_loop()
 
     async def _websocket_loop(self):

@@ -2,10 +2,11 @@ import sys
 import asyncio
 import urllib.parse
 import websockets
+import uuid
 from yuni_parser import Environment
 
-async def server_echo(websocket):
-    env = Environment(True)
+async def server(websocket):
+    env = Environment(str(uuid.uuid4()))
     while True:
         try:
             async for in_packet in websocket:
@@ -25,7 +26,7 @@ def main():
         print("please specify valid address")
         return
     async def serve():
-        async with websockets.serve(server_echo, netloc.hostname, netloc.port):
+        async with websockets.serve(server, netloc.hostname, netloc.port):
             await asyncio.Future()
     asyncio.run(serve())
 

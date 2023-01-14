@@ -1,6 +1,5 @@
 import json
 from enum import Enum, auto
-from types import ModuleType
 import importlib
 import builtins
 
@@ -10,16 +9,19 @@ class YuniObjectType(Enum):
     Table = auto()
     Object = auto()
     Undefined = auto()
+
     def to_string(type):
         for pair in _yuni_object_type_pair:
             if pair[0] == type:
                 return pair[1]
         return ""
+
     def from_string(str):
         for pair in _yuni_object_type_pair:
             if pair[1] == str:
                 return pair[0]
         return YuniObjectType.Undefined
+
 _yuni_object_type_pair = [
     (YuniObjectType.Primitive, "primitive"),
     (YuniObjectType.Array, "array"),
@@ -33,6 +35,7 @@ class YuniObject:
             "type": YuniObjectType.to_string(type),
             "value": value
         }
+
     def from_primitive(primitive):
         return YuniObject._pack(YuniObjectType.Primitive, primitive)
 
@@ -47,9 +50,11 @@ class YuniObject:
         return YuniObject._pack(YuniObjectType.Table, yuni_table)
 
     def from_object(object, env):
-        # FIXME: [A , A] のようになったときに、二重登録しそう
         id = env.register_object(object)
-        return YuniObject._pack(YuniObjectType.Object, id)
+        return YuniObject._pack(YuniObjectType.Object, {
+            "obj_id": id,
+            "env_id": env.id
+        })
 
     def from_python_object(object, env):
         type_object = type(object)
@@ -78,27 +83,27 @@ class YuniObject:
                 result[k] = env.interpret(v, env)
             return result
         elif object_type == YuniObjectType.Object:
-            return env.get_object(value)
+            return env.get_object(value["env_id"], value["obj_id"])
         print(yuni_object, "not found")
         return None
-
 
 class YuniExprType(Enum):
     Object = auto()
     Invoke = auto()
     Import = auto()
-    # StdOut = auto() # エラーを見やすいようにOptionalで設定する
-    Undefined = auto()
+
     def to_string(type):
         for pair in _packet_root_type_pair:
             if pair[0] == type:
                 return pair[1]
         return ""
+
     def from_string(str):
         for pair in _packet_root_type_pair:
             if pair[1] == str:
                 return pair[0]
         return YuniExprType.Undefined
+
 _packet_root_type_pair = [
     (YuniExprType.Object, "object"),
     (YuniExprType.Invoke, "invoke"),
@@ -119,7 +124,6 @@ class YuniExpr:
 
     def from_invoke_expr(function_invoke):
         # TODO:
-        # TODO: object の delete も忘れないようにする
         return YuniExpr._pack(YuniExprType.Invoke, function_invoke)
 
     def from_import_expr(import_name: str):
@@ -138,23 +142,25 @@ class YuniExpr:
         return value
 
 class Environment:
-    def __init__(self, is_master):
+    def __init__(self, id):
         self._imports = {
             "prelude": builtins,
         }
         self._objects = {}
         self._last_object_id = 0
-        self.is_master = is_master
+        self.id = id
 
     def register_object(self, object):
+        # FIXME: [A , A] のようになったときに、二重登録してしまうので治す
+        # FIXME: object の 削除もできればしておきたい
         self._last_object_id += 1
         self._objects[self._last_object_id] = object
         return self._last_object_id
 
-    def get_object(self, id):
-        if self.is_master:
-            return self._objects[id]
-        return ObjectProxy(self, id)
+    def get_object(self, obj_id, env_id):
+        if self.id == env_id:
+            return self._objects[obj_id]
+        return ObjectProxy(obj_id, env_id, self)
 
     def do_import(self, name):
         if name in self._imports:
@@ -171,7 +177,44 @@ class Environment:
         yuni_expr = YuniExpr.from_object_expr(python_object, self)
         return json.dumps(yuni_expr)
 
+    def __str__(self):
+        return f"{22}"
+
+    def __repr__(self):
+        return f"{11}"
+
 class ObjectProxy:
-    def __init__(self, env, id):
+    # TODO: エラーを見やすいようにOptionalで設定する
+    def __init__(self, obj_id, env_id, env):
+        self.obj_id = obj_id
+        self.env_id = env_id
         self.env = env
-        self.id = id
+    def __del__(self):
+        # FIXME:
+        pass
+
+    # str
+    def __str__(self) -> str:
+        return f"{self.obj_id}@{self.env_id}"
+    def __repr__(self):
+        return self.__str__(self)
+
+    # eq
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, ObjectProxy):
+            return False
+        return self.obj_id == __o.obj_id and self.env_id == __o.env_id
+    def __ne__(self, __o: object) -> bool:
+        return not self.__eq__(object)
+
+    # def __call__(self, *args: Any, **kwds: Any) -> Any:
+    #     pass
+    # def __dir__(self) -> Iterable[str]:
+    #     pass
+    # def __getattr__(self, __name: str) -> Any:
+    #     pass
+    # operators
+    # container
+    # __getitem__ / __setitem__ / __delitem__ / __contains__
+    # numbers
+    # __add__ / __sub__ / __mul__ ...
