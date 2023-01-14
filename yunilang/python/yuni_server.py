@@ -2,13 +2,19 @@ import sys
 import asyncio
 import urllib.parse
 import websockets
-import yuni_converter
+from yuni_parser import Packet, Environment
 
 async def server_echo(websocket):
-    async for in_packet in websocket:
-        output = yuni_converter.call_packet(in_packet)
-        out_packet = yuni_converter.to_packet(output)
-        await websocket.send(out_packet)
+    env = Environment()
+    while True:
+        try:
+            async for in_packet in websocket:
+                output = env.parse(in_packet)
+                out_packet = Packet.by_python_object(output, env)
+                await websocket.send(out_packet)
+        except Exception as e:
+            print(e)
+            return
 
 def main():
     if len(sys.argv) <= 1:
