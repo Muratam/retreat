@@ -73,12 +73,9 @@ class YuniProxyModule {
     });
     this._socket = new Socket(socket);
     (async () => {
-      console.log(2);
       const env_id = await this._socket.recv();
-      console.log(3);
       Environment.instance.set_resolver(env_id, this);
       this._socket.send(Environment.instance.get_background_server_address());
-      console.log(4);
     })();
   }
   static run_main_server(hostname, port) {
