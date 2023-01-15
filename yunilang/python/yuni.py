@@ -311,7 +311,9 @@ class ObjectProxy:
 
     # util
     def __get_resolver(self):
-        return self._env.resolver_by_env_id[self._env_id]
+        if self._env_id in self._env.resolver_by_env_id:
+            return self._env.resolver_by_env_id[self._env_id]
+        raise Exception(f"Env({self._env_id}) is not found. Cannot resolve.")
 
     # eq
     def __eq__(self, __o):
