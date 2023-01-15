@@ -1,5 +1,6 @@
 const yuni = require("./js/yuni.js");
-yuni.py.prelude.print("client js")
+yuni.py.prelude
+// yuni.py.prelude.print("client js")
 // const np = yuni.py.numpy
 // console.log(np.array([1, 2.3, 3]) + np.array([1, 2.3, 3]))
 // const print = yuni.py.prelude.print

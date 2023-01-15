@@ -439,11 +439,11 @@ class YuniProxyModule:
         in_packet = json.dumps(YuniExpr.from_import_expr(name))
         return self._call(in_packet)
 
-    def __run_server_impl(server_socket, log = False):
-        server_socket.listen()
+    def __run_server_impl(socket, log = False):
+        socket.listen()
         # シングルスレッドで処理する
         while True:
-            socket_acc_raw, addr = server_socket.accept()
+            socket_acc_raw, addr = socket.accept()
             if log:
                 print(f"connect: {addr}")
             socket_acc = Socket(socket_acc_raw)
@@ -464,20 +464,20 @@ class YuniProxyModule:
                     break
 
     def run_main_server(hostname, port):
-        server_socket = lib_socket.socket()
-        server_socket.bind((hostname, int(port)))
-        YuniProxyModule.__run_server_impl(server_socket)
+        socket = lib_socket.socket()
+        socket.bind((hostname, int(port)))
+        YuniProxyModule.__run_server_impl(socket, True)
 
     def run_background_server(hostname):
-        server_socket = lib_socket.socket()
+        socket = lib_socket.socket()
         for port in range(17200, 40000):
             try:
-                server_socket.bind((hostname, int(port)))
+                socket.bind((hostname, int(port)))
                 break
             except Exception:
                 pass
         Environment.instance.set_background_server_address(hostname, port)
-        threading.Thread(target=YuniProxyModule.__run_server_impl, args=[server_socket], daemon=True).start()
+        threading.Thread(target=YuniProxyModule.__run_server_impl, args=[socket], daemon=True).start()
 
 Environment.create_instance(f"pid:{os.getpid()}")
 if __name__ == "__main__":
