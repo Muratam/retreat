@@ -20,39 +20,44 @@ class Socket {
   constructor(socket) {
     this._socket = socket;
     this._recv_queue = [];
+    this._recv_left_buffer = Buffer.from("");
     this._socket.on("data", data => this._recv_queue.push(data));
   }
   // FIXME: no destructor(for socket.close)
   async _recv_fixed_size(size) {
-    let result = ""
+    let updated = true;
     while (true) {
-      if (this._recv_queue.length === 0) {
+      if (!updated && this._recv_queue.length === 0) {
         await setTimeout(1);
         continue;
       }
-      for (const recv of this._recv_queue) {
-        console.log(recv);
-      }
-      // const size_byte_8 = parseInt(Buffer.from("あ").toString("hex"), 16)
+      const recv_buffer = Buffer.concat([this._recv_left_buffer, ...this._recv_queue]);
       this._recv_queue = []
-      return result;
+      if (recv_buffer.length >= size) {
+        const result = Uint8Array.prototype.slice.call(recv_buffer, 0, size);
+        this._recv_left_buffer = Uint8Array.prototype.slice.call(recv_buffer, size, recv_buffer.length);
+        return result;
+      }
+      this._recv_left_buffer = recv_buffer;
+      updated = false;
     }
   }
   async recv() {
-    const size_byte_8 = await self._recv_fixed_size(8);
-    const size_byte_8_view = new DataView(size_byte_8);
+    const size_byte_4 = await this._recv_fixed_size(4);
+    const size_byte_4_uint8_array = new Uint8Array(size_byte_4);
+    const size_byte_4_view = new DataView(size_byte_4_uint8_array.buffer);
     const is_little_endian = false;
-    const size = size_byte_8_view.getUint32(0, is_little_endian)
-    const recv_buffer = await self._recv_fixed_size(size);
+    const size = size_byte_4_view.getUint32(0, is_little_endian);
+    const recv_buffer = await this._recv_fixed_size(size);
     return recv_buffer.toString("utf8");
   }
   send(packet) {
     const packet_byte = Buffer.from(packet, 'utf8');
-    const size = packet_byte.length();
-    const size_byte_8_view = new DataView(new ArrayBuffer(8));
+    const size = packet_byte.length;
+    const size_byte_4_view = new DataView(new ArrayBuffer(4));
     const is_little_endian = false;
-    size_byte_8_view.setUint32(0, size, is_little_endian);
-    this._socket.write(size_byte_8_view.buffer);
+    size_byte_4_view.setUint32(0, size, is_little_endian);
+    this._socket.write(Buffer.from(size_byte_4_view.buffer));
     this._socket.write(packet);
   }
 }

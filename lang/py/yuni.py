@@ -399,15 +399,15 @@ class Socket:
         self._socket.close()
 
     def recv(self):
-        size_byte_8 = self._socket.recv(8)
-        size = int.from_bytes(size_byte_8, "big")
+        size_byte_4 = self._socket.recv(4)
+        size = int.from_bytes(size_byte_4, "big")
         return self._socket.recv(size).decode("utf-8")
 
     def send(self, packet):
         packet_byte = packet.encode("utf-8")
         size = len(packet_byte)
-        size_byte_8 = int(size).to_bytes(8, "big")
-        self._socket.send(size_byte_8)
+        size_byte_4 = int(size).to_bytes(4, "big")
+        self._socket.send(size_byte_4)
         self._socket.send(packet_byte)
 
 class YuniProxyModule:
