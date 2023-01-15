@@ -1,2 +1,0 @@
-- websocket + json-RPC でやり取りをする。
-- Python <=> Nodejs <=> C++(Clang) <=> Rust <=> Go
