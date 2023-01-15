@@ -443,25 +443,24 @@ class YuniProxyModule:
         socket.listen()
         # シングルスレッドで処理する
         while True:
-            socket_acc_raw, addr = socket.accept()
-            if log:
-                print(f"connect: {addr}")
-            socket_acc = Socket(socket_acc_raw)
-            socket_acc.send(Environment.instance.get_id())
-            acc_background_env_address = socket_acc.recv()
-            if acc_background_env_address:
-                abe_hostname, abe_port = acc_background_env_address.split(":")
-                YuniProxyModule(abe_hostname, abe_port)
-            while True:
-                try:
+            try:
+                socket_acc_raw, addr = socket.accept()
+                if log:
+                    print(f"connect: {addr}")
+                socket_acc = Socket(socket_acc_raw)
+                socket_acc.send(Environment.instance.get_id())
+                acc_background_env_address = socket_acc.recv()
+                if acc_background_env_address:
+                    abe_hostname, abe_port = acc_background_env_address.split(":")
+                    YuniProxyModule(abe_hostname, abe_port)
+                while True:
                     in_packet = socket_acc.recv()
                     if not in_packet: break # killed
                     output = Environment.instance.from_packet(in_packet, raise_exception=False)
                     out_packet = Environment.instance.to_packet(output)
                     socket_acc.send(out_packet)
-                except Exception as e:
-                    print(e)
-                    break
+            except Exception as e:
+                print(e)
 
     def run_main_server(hostname, port):
         socket = lib_socket.socket()
