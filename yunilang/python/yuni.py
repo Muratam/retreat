@@ -195,7 +195,7 @@ class YuniExpr:
         for arg in args:
             yuni_args.append(YuniObject.from_python_object(arg, env))
         yuni_kwds = {}
-        for k, v in kwds:
+        for k, v in kwds.items():
             yuni_kwds[k] = YuniObject.from_python_object(v, env)
         return YuniExpr._pack(YuniExprType.Invoke, {
             "object": YuniObject.from_python_object(object, env),
@@ -225,7 +225,7 @@ class YuniExpr:
                 for arg in value["args"]:
                     args.append(YuniObject.interpret(arg, env, raise_exception))
                 kwds = {}
-                for k, v in value["kwds"]:
+                for k, v in value["kwds"].items():
                     kwds[k] = YuniObject.interpret(v, env, raise_exception)
                 return object.__call__(*args, **kwds)
         except Exception as exception:
