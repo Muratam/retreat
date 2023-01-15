@@ -168,6 +168,7 @@ _optional_attr_table = {
 }
 _rev_optional_attr_table = {}
 for k, v in _optional_attr_table.items(): _rev_optional_attr_table[v] = k
+
 class YuniExpr:
     def _pack(type, value):
         return {
@@ -208,7 +209,7 @@ class YuniExpr:
             expr_type = YuniExprType.from_string(yuni_expr["type"])
             value = yuni_expr["value"]
             if expr_type == YuniExprType.GetEnvId:
-                return env.id
+                return env._id
             elif expr_type == YuniExprType.Object:
                 return YuniObject.interpret(value, env, raise_exception)
             elif expr_type == YuniExprType.Import:
@@ -239,7 +240,7 @@ class LocalResolver:
 
     def call_get_attr(self, object_proxy, name):
         object = self._env.get_object(object_proxy._obj_id, object_proxy._env_id)
-        return object.__getattribute_(name)
+        return object.__getattr__(name)
 
     def call_invoke(self, object_proxy, args, kwds):
         object = self._env.get_object(object_proxy._obj_id, object_proxy._env_id)
@@ -252,8 +253,8 @@ class Environment:
         }
         self._objects = {}
         self._last_obj_id = 0
-        self.id = id
-        self.resolver_by_env_id = {
+        self._id = id
+        self._resolver_by_env_id = {
             id: LocalResolver(self)
         }
 
@@ -269,11 +270,11 @@ class Environment:
         self._objects[self._last_obj_id] = object
         return {
             "obj_id": self._last_obj_id,
-            "env_id": self.id
+            "env_id": self._id
         }
 
     def get_object(self, obj_id, env_id):
-        if self.id == env_id:
+        if self._id == env_id:
             return self._objects[obj_id]
         return ObjectProxy(obj_id, env_id, self)
 
@@ -311,8 +312,8 @@ class ObjectProxy:
 
     # util
     def __get_resolver(self):
-        if self._env_id in self._env.resolver_by_env_id:
-            return self._env.resolver_by_env_id[self._env_id]
+        if self._env_id in self._env._resolver_by_env_id:
+            return self._env._resolver_by_env_id[self._env_id]
         raise Exception(f"Env({self._env_id}) is not found. Cannot resolve.")
 
     # eq
@@ -381,25 +382,24 @@ class ObjectProxy:
     def __ixor__(self, *args): return self.__call_attr(_rev_optional_attr_table["__ixor__"], *args)
     def __ior__(self, *args): return self.__call_attr(_rev_optional_attr_table["__ior__"], *args)
 
-
 class Socket:
     def __init__(self, sock):
-        self.socket = sock
+        self._socket = sock
 
     def __del__(self):
-        self.socket.close()
+        self._socket.close()
 
     def recv(self):
-        size_byte_8 = self.socket.recv(8)
+        size_byte_8 = self._socket.recv(8)
         size = int.from_bytes(size_byte_8, "big")
-        return self.socket.recv(size).decode("utf-8")
+        return self._socket.recv(size).decode("utf-8")
 
     def send(self, packet):
         packet_byte = packet.encode("utf-8")
         size = len(packet_byte)
         size_byte_8 = int(size).to_bytes(8, "big")
-        self.socket.send(size_byte_8)
-        self.socket.send(packet_byte)
+        self._socket.send(size_byte_8)
+        self._socket.send(packet_byte)
 
 class YuniProxyModule:
     def __init__(self, port, hostname):
@@ -408,18 +408,19 @@ class YuniProxyModule:
         self._env = Environment(f"pid:{os.getpid()}") # f"uuid4:{uuid.uuid4()}
         sock = socket.socket()
         sock.connect((self._hostname, int(self._port)))
-        self.socket = Socket(sock)
+        self._socket = Socket(sock)
+        # self._socket.send(self._env._id)
         self._call_set_env_id()
 
     def _call(self, in_packet):
-        self.socket.send(in_packet)
-        out_packet = self.socket.recv()
+        self._socket.send(in_packet)
+        out_packet = self._socket.recv()
         return self._env.from_packet(out_packet, raise_exception=True)
 
     def _call_set_env_id(self):
         in_packet = json.dumps(YuniExpr.from_get_env_id_expr())
         env_id = self._call(in_packet)
-        self._env.resolver_by_env_id[env_id] = self
+        self._env._resolver_by_env_id[env_id] = self
 
     def _call_import(self, import_name):
         in_packet = json.dumps(YuniExpr.from_import_expr(import_name))
