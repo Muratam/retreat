@@ -101,7 +101,6 @@ class YuniObject:
         return None
 
 class YuniExprType(Enum):
-    GetEnvId = auto()
     Object = auto()
     Invoke = auto()
     GetAttr = auto()
@@ -120,7 +119,6 @@ class YuniExprType(Enum):
         return YuniExprType.Undefined
 
 _packet_root_type_pair = [
-    (YuniExprType.GetEnvId, "get_env_id"),
     (YuniExprType.Object, "object"),
     (YuniExprType.Import, "import"),
     (YuniExprType.GetAttr, "get_attr"),
@@ -177,8 +175,6 @@ class YuniExpr:
             "type": YuniExprType.to_string(type),
             "value": value
         }
-    def from_get_env_id_expr():
-        return YuniExpr._pack(YuniExprType.GetEnvId, None)
 
     def from_object_expr(object):
         yuni_object = YuniObject.from_python_object(object)
@@ -210,9 +206,7 @@ class YuniExpr:
         try:
             expr_type = YuniExprType.from_string(yuni_expr["type"])
             value = yuni_expr["value"]
-            if expr_type == YuniExprType.GetEnvId:
-                return Environment.instance.get_id()
-            elif expr_type == YuniExprType.Object:
+            if expr_type == YuniExprType.Object:
                 return YuniObject.interpret(value, raise_exception)
             elif expr_type == YuniExprType.Import:
                 return Environment.instance.do_import(value)
@@ -309,6 +303,11 @@ class Environment:
         if env_id in self._resolver_by_env_id:
           return self._resolver_by_env_id[env_id]
         raise Exception(f"Env({env_id}) is not found. Cannot resolve.")
+
+    def set_resolver(self, env_id, resolver):
+        if env_id in self._resolver_by_env_id:
+            raise Exception(f"already registered env_id:{env_id}")
+        self._resolver_by_env_id[env_id] = resolver
 
 
 class ObjectProxy:
@@ -418,18 +417,14 @@ class YuniProxyModule:
         sock = socket.socket()
         sock.connect((self._hostname, int(self._port)))
         self._socket = Socket(sock)
+        env_id = self._socket.recv()
+        Environment.instance.set_resolver(env_id, self)
         self._socket.send(Environment.instance.get_background_server_address())
-        self._call_set_env_id()
 
     def _call(self, in_packet):
         self._socket.send(in_packet)
         out_packet = self._socket.recv()
         return Environment.instance.from_packet(out_packet, raise_exception=True)
-
-    def _call_set_env_id(self):
-        in_packet = json.dumps(YuniExpr.from_get_env_id_expr())
-        env_id = self._call(in_packet)
-        Environment.instance._resolver_by_env_id[env_id] = self
 
     def call_get_attr(self, object_proxy, name):
         in_packet = json.dumps(YuniExpr.from_get_attr_expr(object_proxy, name))
@@ -444,7 +439,6 @@ class YuniProxyModule:
         in_packet = json.dumps(YuniExpr.from_import_expr(name))
         return self._call(in_packet)
 
-
     def __run_server_impl(server_socket, log = False):
         server_socket.listen()
         # シングルスレッドで処理する
@@ -453,6 +447,7 @@ class YuniProxyModule:
             if log:
                 print(f"connect: {addr}")
             socket_acc = Socket(socket_acc_raw)
+            socket_acc.send(Environment.instance.get_id())
             acc_background_env_address = socket_acc.recv()
             if acc_background_env_address:
                 abe_hostname, abe_port = acc_background_env_address.split(":")
@@ -486,14 +481,15 @@ class YuniProxyModule:
 
 Environment.create_instance(f"pid:{os.getpid()}")
 if __name__ == "__main__":
-    # as Server
-    if len(sys.argv) != 2:
+    # as server
+    argv = sys.argv
+    if len(argv) == 2:
+        hostname, port = argv[1].split(":")
+        YuniProxyModule.run_main_server(hostname, port)
+    else:
         print("please specify the address")
-        quit()
-    hostname, port = sys.argv[1].split(":")
-    YuniProxyModule.run_main_server(hostname, port)
 else:
-    # as Module
+    # as module
     YuniProxyModule.run_background_server("127.0.0.1")
     py = YuniProxyModule("127.0.0.1", 7200)
     # js go cs cpp rs
