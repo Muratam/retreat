@@ -4,7 +4,7 @@ np = yuni.py.numpy
 max = yuni.py.prelude.max
 print(dir(np.array([])))
 print(np.array([1,2.3,3]) + np.array([1,2.3,3]))
-print(numpy.array([1,2.3,3]) + numpy.array([1,2.3,3]))
+# print(numpy.array([1,2.3,3]) + numpy.array([1,2.3,3]))
 # print(numpy.array([1,2.3,3]) + np.array([1,2.3,3]))
 # print(np.array([1,2.3,3]) + numpy.array([1,2.3,3]))
 
