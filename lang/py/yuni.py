@@ -43,23 +43,24 @@ class YuniObject:
     def from_primitive(primitive):
         return YuniObject._pack(YuniObjectType.Primitive, primitive)
 
-    def from_array(array, env):
-        yuni_array = [YuniObject.from_python_object(x, env) for x in array]
+    def from_array(array):
+        yuni_array = [YuniObject.from_python_object(x) for x in array]
         return YuniObject._pack(YuniObjectType.Array, yuni_array)
 
-    def from_table(table, env):
+    def from_table(table):
         yuni_table = {}
         for k, v in table.items():
-            yuni_table[k] = YuniObject.from_python_object(v, env)
+            yuni_table[k] = YuniObject.from_python_object(v)
         return YuniObject._pack(YuniObjectType.Table, yuni_table)
 
     def from_exception(exception):
         return YuniObject._pack(YuniObjectType.Exception, str(exception))
 
-    def from_object(object, env):
-        return YuniObject._pack(YuniObjectType.Object, env.register_object(object))
+    def from_object(object):
+        yuni_object = Environment.instance.register_object(object)
+        return YuniObject._pack(YuniObjectType.Object, yuni_object)
 
-    def from_python_object(object, env):
+    def from_python_object(object):
         type_object = type(object)
         if (type_object == int) or (
             type_object == float) or (
@@ -68,28 +69,28 @@ class YuniObject:
             object is None):
             return YuniObject.from_primitive(object)
         if type_object == list:
-            return YuniObject.from_array(object, env)
+            return YuniObject.from_array(object)
         elif type_object == dict:
-            return YuniObject.from_table(object, env)
+            return YuniObject.from_table(object)
         elif isinstance(object, Exception):
             return YuniObject.from_exception(object)
-        return YuniObject.from_object(object, env)
+        return YuniObject.from_object(object)
 
-    def interpret(yuni_object, env, raise_exception=False):
+    def interpret(yuni_object, raise_exception=False):
         try:
             object_type = YuniObjectType.from_string(yuni_object["type"])
             value = yuni_object["value"]
             if object_type == YuniObjectType.Primitive:
                 return value
             elif object_type == YuniObjectType.Array:
-                return [YuniObject.interpret(x, env, raise_exception) for x in value]
+                return [YuniObject.interpret(x, raise_exception) for x in value]
             elif object_type == YuniObjectType.Table:
                 result = {}
                 for k, v in value.items():
-                    result[k] = YuniObject.interpret(v, env, raise_exception)
+                    result[k] = YuniObject.interpret(v, raise_exception)
                 return result
             elif object_type == YuniObjectType.Object:
-                return env.get_object(value["obj_id"], value["env_id"])
+                return Environment.instance.get_object(value["obj_id"], value["env_id"])
             elif object_type == YuniObjectType.Exception:
                 exception = Exception(value)
                 if raise_exception: raise exception
@@ -179,56 +180,56 @@ class YuniExpr:
     def from_get_env_id_expr():
         return YuniExpr._pack(YuniExprType.GetEnvId, None)
 
-    def from_object_expr(object, env):
-        yuni_object = YuniObject.from_python_object(object, env)
+    def from_object_expr(object):
+        yuni_object = YuniObject.from_python_object(object)
         return YuniExpr._pack(YuniExprType.Object, yuni_object)
 
     def from_import_expr(import_name):
         return YuniExpr._pack(YuniExprType.Import, import_name)
 
-    def from_get_attr_expr(object, attr_name, env):
+    def from_get_attr_expr(object, attr_name):
         return YuniExpr._pack(YuniExprType.GetAttr, {
-            "object": YuniObject.from_python_object(object, env),
+            "object": YuniObject.from_python_object(object),
             "attr_name": attr_name,
         })
 
-    def from_invoke_expr(object, args, kwds, env):
+    def from_invoke_expr(object, args, kwds):
         yuni_args = []
         for arg in args:
-            yuni_args.append(YuniObject.from_python_object(arg, env))
+            yuni_args.append(YuniObject.from_python_object(arg))
         yuni_kwds = {}
         for k, v in kwds.items():
-            yuni_kwds[k] = YuniObject.from_python_object(v, env)
+            yuni_kwds[k] = YuniObject.from_python_object(v)
         return YuniExpr._pack(YuniExprType.Invoke, {
-            "object": YuniObject.from_python_object(object, env),
+            "object": YuniObject.from_python_object(object),
             "args": yuni_args,
             "kwds": yuni_kwds,
         })
 
-    def interpret(yuni_expr, env, raise_exception=False):
+    def interpret(yuni_expr, raise_exception=False):
         try:
             expr_type = YuniExprType.from_string(yuni_expr["type"])
             value = yuni_expr["value"]
             if expr_type == YuniExprType.GetEnvId:
-                return env.get_id()
+                return Environment.instance.get_id()
             elif expr_type == YuniExprType.Object:
-                return YuniObject.interpret(value, env, raise_exception)
+                return YuniObject.interpret(value, raise_exception)
             elif expr_type == YuniExprType.Import:
-                return env.do_import(value)
+                return Environment.instance.do_import(value)
             elif expr_type == YuniExprType.GetAttr:
-                object = YuniObject.interpret(value["object"], env, raise_exception)
+                object = YuniObject.interpret(value["object"], raise_exception)
                 attr_name = value["attr_name"]
                 if attr_name in _optional_attr_table:
                     attr_name = _optional_attr_table[attr_name]
                 return object.__getattribute__(attr_name)
             elif expr_type == YuniExprType.Invoke:
-                object = YuniObject.interpret(value["object"], env, raise_exception)
+                object = YuniObject.interpret(value["object"], raise_exception)
                 args = []
                 for arg in value["args"]:
-                    args.append(YuniObject.interpret(arg, env, raise_exception))
+                    args.append(YuniObject.interpret(arg, raise_exception))
                 kwds = {}
                 for k, v in value["kwds"].items():
-                    kwds[k] = YuniObject.interpret(v, env, raise_exception)
+                    kwds[k] = YuniObject.interpret(v, raise_exception)
                 return object.__call__(*args, **kwds)
         except Exception as exception:
             if raise_exception: raise exception
@@ -236,15 +237,12 @@ class YuniExpr:
         return value
 
 class LocalResolver:
-    def __init__(self, env):
-        self._env = env
-
     def call_get_attr(self, object_proxy, name):
-        object = self._env.get_object(object_proxy._obj_id, object_proxy._env_id)
+        object = Environment.instance.get_object(object_proxy._obj_id, object_proxy._env_id)
         return object.__getattr__(name)
 
     def call_invoke(self, object_proxy, args, kwds):
-        object = self._env.get_object(object_proxy._obj_id, object_proxy._env_id)
+        object = Environment.instance.get_object(object_proxy._obj_id, object_proxy._env_id)
         return object.__call__(*args, **kwds)
 
 class Environment:
@@ -256,9 +254,12 @@ class Environment:
         self._last_obj_id = 0
         self._id = id
         self._resolver_by_env_id = {
-            id: LocalResolver(self)
+            id: LocalResolver()
         }
         self._background_server_address = ""
+
+    def create_instance(id):
+        Environment.instance = Environment(id)
 
     def register_object(self, object):
         if isinstance(object, ObjectProxy):
@@ -278,7 +279,7 @@ class Environment:
     def get_object(self, obj_id, env_id):
         if self._id == env_id:
             return self._objects[obj_id]
-        return ObjectProxy(obj_id, env_id, self)
+        return ObjectProxy(obj_id, env_id)
 
     def do_import(self, name):
         if name in self._imports:
@@ -289,10 +290,10 @@ class Environment:
 
     def from_packet(self, packet, raise_exception):
         yuni_expr = json.loads(packet)
-        return YuniExpr.interpret(yuni_expr, self, raise_exception)
+        return YuniExpr.interpret(yuni_expr, raise_exception)
 
     def to_packet(self, python_object):
-        yuni_expr = YuniExpr.from_object_expr(python_object, self)
+        yuni_expr = YuniExpr.from_object_expr(python_object)
         return json.dumps(yuni_expr)
 
     def set_background_server_address(self, hostname, port):
@@ -312,11 +313,10 @@ class Environment:
 
 class ObjectProxy:
     # FIXME: 標準出力を見やすいようにOptionalで設定する
-    def __init__(self, obj_id, env_id, env):
+    def __init__(self, obj_id, env_id):
         # NOTE: getattr があるので、これのgetterメソッドは用意できない
         self._obj_id = obj_id
         self._env_id = env_id
-        self._env = env
 
     def __del__(self):
         # FIXME:
@@ -324,7 +324,7 @@ class ObjectProxy:
 
     # util
     def __get_resolver(self):
-        return self._env.get_resolver(self._env_id)
+        return Environment.instance.get_resolver(self._env_id)
 
     # eq
     def __eq__(self, __o):
@@ -412,32 +412,31 @@ class Socket:
         self._socket.send(packet_byte)
 
 class YuniProxyModule:
-    def __init__(self, env, hostname, port):
+    def __init__(self, hostname, port):
         self._hostname = hostname
         self._port = port
-        self._env = env
         sock = socket.socket()
         sock.connect((self._hostname, int(self._port)))
         self._socket = Socket(sock)
-        self._socket.send(self._env.get_background_server_address())
+        self._socket.send(Environment.instance.get_background_server_address())
         self._call_set_env_id()
 
     def _call(self, in_packet):
         self._socket.send(in_packet)
         out_packet = self._socket.recv()
-        return self._env.from_packet(out_packet, raise_exception=True)
+        return Environment.instance.from_packet(out_packet, raise_exception=True)
 
     def _call_set_env_id(self):
         in_packet = json.dumps(YuniExpr.from_get_env_id_expr())
         env_id = self._call(in_packet)
-        self._env._resolver_by_env_id[env_id] = self
+        Environment.instance._resolver_by_env_id[env_id] = self
 
     def call_get_attr(self, object_proxy, name):
-        in_packet = json.dumps(YuniExpr.from_get_attr_expr(object_proxy, name, self._env))
+        in_packet = json.dumps(YuniExpr.from_get_attr_expr(object_proxy, name))
         return self._call(in_packet)
 
     def call_invoke(self, object_proxy, args, kwds):
-        in_packet = json.dumps(YuniExpr.from_invoke_expr(object_proxy, args, kwds, self._env))
+        in_packet = json.dumps(YuniExpr.from_invoke_expr(object_proxy, args, kwds))
         return self._call(in_packet)
 
     def __getattr__(self, name):
@@ -446,7 +445,7 @@ class YuniProxyModule:
         return self._call(in_packet)
 
 
-    def __run_server_impl(env, server_socket, log = False):
+    def __run_server_impl(server_socket, log = False):
         server_socket.listen()
         # シングルスレッドで処理する
         while True:
@@ -457,24 +456,24 @@ class YuniProxyModule:
             acc_background_env_address = socket_acc.recv()
             if acc_background_env_address:
                 abe_hostname, abe_port = acc_background_env_address.split(":")
-                YuniProxyModule(_env, abe_hostname, abe_port)
+                YuniProxyModule(abe_hostname, abe_port)
             while True:
                 try:
                     in_packet = socket_acc.recv()
                     if not in_packet: break # killed
-                    output = env.from_packet(in_packet, raise_exception=False)
-                    out_packet = env.to_packet(output)
+                    output = Environment.instance.from_packet(in_packet, raise_exception=False)
+                    out_packet = Environment.instance.to_packet(output)
                     socket_acc.send(out_packet)
                 except Exception as e:
                     print(e)
                     break
 
-    def run_main_server(env, hostname, port):
+    def run_main_server(hostname, port):
         server_socket = socket.socket()
         server_socket.bind((hostname, int(port)))
-        YuniProxyModule.__run_server_impl(env, server_socket)
+        YuniProxyModule.__run_server_impl(server_socket)
 
-    def run_background_server(env, hostname):
+    def run_background_server(hostname):
         server_socket = socket.socket()
         for port in range(17200, 40000):
             try:
@@ -482,19 +481,19 @@ class YuniProxyModule:
                 break
             except Exception:
                 pass
-        env.set_background_server_address(hostname, port)
-        threading.Thread(target=YuniProxyModule.__run_server_impl, args=[env, server_socket], daemon=True).start()
+        Environment.instance.set_background_server_address(hostname, port)
+        threading.Thread(target=YuniProxyModule.__run_server_impl, args=[server_socket], daemon=True).start()
 
-_env = Environment(f"pid:{os.getpid()}")
+Environment.create_instance(f"pid:{os.getpid()}")
 if __name__ == "__main__":
     # as Server
     if len(sys.argv) != 2:
         print("please specify the address")
         quit()
     hostname, port = sys.argv[1].split(":")
-    YuniProxyModule.run_main_server(_env, hostname, port)
+    YuniProxyModule.run_main_server(hostname, port)
 else:
-    YuniProxyModule.run_background_server(_env, "127.0.0.1")
-    # Module
-    py = YuniProxyModule(_env, "127.0.0.1", 7200)
+    # as Module
+    YuniProxyModule.run_background_server("127.0.0.1")
+    py = YuniProxyModule("127.0.0.1", 7200)
     # js go cs cpp rs
