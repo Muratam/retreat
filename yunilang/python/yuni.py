@@ -4,6 +4,7 @@ import builtins
 import socket
 import sys
 import os
+import threading
 
 class YuniObjectType(Enum):
     Primitive = auto()
@@ -257,6 +258,7 @@ class Environment:
         self._resolver_by_env_id = {
             id: LocalResolver(self)
         }
+        self._background_server_address = ""
 
     def register_object(self, object):
         if isinstance(object, ObjectProxy):
@@ -293,11 +295,8 @@ class Environment:
         yuni_expr = YuniExpr.from_object_expr(python_object, self)
         return json.dumps(yuni_expr)
 
-    def __str__(self):
-        return f"{22}"
-
-    def __repr__(self):
-        return f"{11}"
+    def set_background_server_address(self, hostname, port):
+        self._background_server_address = f"{hostname}:{port}"
 
 class ObjectProxy:
     # FIXME: 標準出力を見やすいようにOptionalで設定する
@@ -402,14 +401,14 @@ class Socket:
         self._socket.send(packet_byte)
 
 class YuniProxyModule:
-    def __init__(self, port, hostname):
-        self._port = port
+    def __init__(self, env, hostname, port):
         self._hostname = hostname
-        self._env = Environment(f"pid:{os.getpid()}") # f"uuid4:{uuid.uuid4()}
+        self._port = port
+        self._env = env
         sock = socket.socket()
         sock.connect((self._hostname, int(self._port)))
         self._socket = Socket(sock)
-        # self._socket.send(self._env._id)
+        self._socket.send(self._env._background_server_address)
         self._call_set_env_id()
 
     def _call(self, in_packet):
@@ -422,10 +421,6 @@ class YuniProxyModule:
         env_id = self._call(in_packet)
         self._env._resolver_by_env_id[env_id] = self
 
-    def _call_import(self, import_name):
-        in_packet = json.dumps(YuniExpr.from_import_expr(import_name))
-        return self._call(in_packet)
-
     def call_get_attr(self, object_proxy, name):
         in_packet = json.dumps(YuniExpr.from_get_attr_expr(object_proxy, name, self._env))
         return self._call(in_packet)
@@ -435,18 +430,23 @@ class YuniProxyModule:
         return self._call(in_packet)
 
     def __getattr__(self, name):
-        return self._call_import(name)
+        # call import
+        in_packet = json.dumps(YuniExpr.from_import_expr(name))
+        return self._call(in_packet)
 
-    def run_server(hostname, port):
-        server_socket = socket.socket()
-        server_socket.bind((hostname, int(port)))
+
+    def __run_server_impl(env, server_socket, log = False):
         server_socket.listen()
         # シングルスレッドで処理する
-        env = Environment(f"pid:{os.getpid()}") # f"uuid4:{uuid.uuid4()}
         while True:
             socket_acc_raw, addr = server_socket.accept()
-            print(f"connect: {addr}")
+            if log:
+                print(f"connect: {addr}")
             socket_acc = Socket(socket_acc_raw)
+            acc_background_env_address = socket_acc.recv()
+            if acc_background_env_address:
+                abe_hostname, abe_port = acc_background_env_address.split(":")
+                YuniProxyModule(_env, abe_hostname, abe_port)
             while True:
                 try:
                     in_packet = socket_acc.recv()
@@ -458,18 +458,32 @@ class YuniProxyModule:
                     print(e)
                     break
 
+    def run_main_server(env, hostname, port):
+        server_socket = socket.socket()
+        server_socket.bind((hostname, int(port)))
+        YuniProxyModule.__run_server_impl(env, server_socket, True)
+
+    def run_background_server(env, hostname):
+        server_socket = socket.socket()
+        for port in range(17200, 40000):
+            try:
+                server_socket.bind((hostname, int(port)))
+                break
+            except Exception:
+                pass
+        env.set_background_server_address(hostname, port)
+        threading.Thread(target=YuniProxyModule.__run_server_impl, args=[env, server_socket], daemon=True).start()
+
+_env = Environment(f"pid:{os.getpid()}")
 if __name__ == "__main__":
     # as Server
     if len(sys.argv) != 2:
         print("please specify the address")
         quit()
     hostname, port = sys.argv[1].split(":")
-    YuniProxyModule.run_server(hostname, port)
+    YuniProxyModule.run_main_server(_env, hostname, port)
 else:
-    # as Module
-    py = YuniProxyModule(7200, "127.0.0.1")
-    # js = YuniProxyModule(7201, "127.0.0.1")
-    # go = YuniProxyModule(7202, "127.0.0.1")
-    # cs = YuniProxyModule(7203, "127.0.0.1")
-    # cpp = YuniProxyModule(7204, "127.0.0.1")
-    # rs = YuniProxyModule(7205, "127.0.0.1")
+    YuniProxyModule.run_background_server(_env, "127.0.0.1")
+    # Module
+    py = YuniProxyModule(_env, "127.0.0.1", 7200)
+    # js go cs cpp rs
