@@ -210,7 +210,7 @@ class YuniExpr:
             expr_type = YuniExprType.from_string(yuni_expr["type"])
             value = yuni_expr["value"]
             if expr_type == YuniExprType.GetEnvId:
-                return env._id
+                return env.get_id()
             elif expr_type == YuniExprType.Object:
                 return YuniObject.interpret(value, env, raise_exception)
             elif expr_type == YuniExprType.Import:
@@ -298,9 +298,22 @@ class Environment:
     def set_background_server_address(self, hostname, port):
         self._background_server_address = f"{hostname}:{port}"
 
+    def get_background_server_address(self):
+        return self._background_server_address
+
+    def get_id(self):
+        return self._id
+
+    def get_resolver(self, env_id):
+        if env_id in self._resolver_by_env_id:
+          return self._resolver_by_env_id[env_id]
+        raise Exception(f"Env({env_id}) is not found. Cannot resolve.")
+
+
 class ObjectProxy:
     # FIXME: 標準出力を見やすいようにOptionalで設定する
     def __init__(self, obj_id, env_id, env):
+        # NOTE: getattr があるので、これのgetterメソッドは用意できない
         self._obj_id = obj_id
         self._env_id = env_id
         self._env = env
@@ -311,9 +324,7 @@ class ObjectProxy:
 
     # util
     def __get_resolver(self):
-        if self._env_id in self._env._resolver_by_env_id:
-            return self._env._resolver_by_env_id[self._env_id]
-        raise Exception(f"Env({self._env_id}) is not found. Cannot resolve.")
+        return self._env.get_resolver(self._env_id)
 
     # eq
     def __eq__(self, __o):
@@ -408,7 +419,7 @@ class YuniProxyModule:
         sock = socket.socket()
         sock.connect((self._hostname, int(self._port)))
         self._socket = Socket(sock)
-        self._socket.send(self._env._background_server_address)
+        self._socket.send(self._env.get_background_server_address())
         self._call_set_env_id()
 
     def _call(self, in_packet):
@@ -461,7 +472,7 @@ class YuniProxyModule:
     def run_main_server(env, hostname, port):
         server_socket = socket.socket()
         server_socket.bind((hostname, int(port)))
-        YuniProxyModule.__run_server_impl(env, server_socket, True)
+        YuniProxyModule.__run_server_impl(env, server_socket)
 
     def run_background_server(env, hostname):
         server_socket = socket.socket()
