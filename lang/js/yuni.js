@@ -1,3 +1,4 @@
+const net = require("net")
 class Environment {
   constructor(id) {
     // TODO:
@@ -7,17 +8,20 @@ class Environment {
   }
 }
 
+class Socket {
+
+}
+
 class YuniProxyModule {
-  constructor(env, hostname, port) {
+  constructor(hostname, port) {
     this._hostname = hostname
     this._port = port
-    this._env = env
     // TODO:
   }
   static run_main_server(hostname, port) {
     // TODO:
   }
-  static run_background_server(env, hostname) {
+  static run_background_server(hostname) {
     // TODO:
   }
 }

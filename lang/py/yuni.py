@@ -1,7 +1,7 @@
 import json
 from enum import Enum, auto
 import builtins
-import socket
+import socket as lib_socket
 import sys
 import os
 import threading
@@ -392,8 +392,8 @@ class ObjectProxy:
     def __ior__(self, *args): return self.__call_attr(_rev_optional_attr_table["__ior__"], *args)
 
 class Socket:
-    def __init__(self, sock):
-        self._socket = sock
+    def __init__(self, socket):
+        self._socket = socket
 
     def __del__(self):
         self._socket.close()
@@ -414,9 +414,9 @@ class YuniProxyModule:
     def __init__(self, hostname, port):
         self._hostname = hostname
         self._port = port
-        sock = socket.socket()
-        sock.connect((self._hostname, int(self._port)))
-        self._socket = Socket(sock)
+        socket = lib_socket.socket()
+        socket.connect((self._hostname, int(self._port)))
+        self._socket = Socket(socket)
         env_id = self._socket.recv()
         Environment.instance.set_resolver(env_id, self)
         self._socket.send(Environment.instance.get_background_server_address())
@@ -464,12 +464,12 @@ class YuniProxyModule:
                     break
 
     def run_main_server(hostname, port):
-        server_socket = socket.socket()
+        server_socket = lib_socket.socket()
         server_socket.bind((hostname, int(port)))
         YuniProxyModule.__run_server_impl(server_socket)
 
     def run_background_server(hostname):
-        server_socket = socket.socket()
+        server_socket = lib_socket.socket()
         for port in range(17200, 40000):
             try:
                 server_socket.bind((hostname, int(port)))
