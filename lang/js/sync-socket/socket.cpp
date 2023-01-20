@@ -1,25 +1,6 @@
 #include <node.h>
 #include <node_object_wrap.h>
 
-namespace demo {
-
-class MyObject : public node::ObjectWrap {
- public:
-  static void Init(v8::Local<v8::Object> exports);
-
- private:
-  explicit MyObject(double value = 0);
-  ~MyObject();
-
-  static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
-  static void PlusOne(const v8::FunctionCallbackInfo<v8::Value>& args);
-
-  double value_;
-};
-}  // namespace demo
-
-namespace demo {
-
 using v8::Context;
 using v8::Function;
 using v8::FunctionCallbackInfo;
@@ -32,9 +13,19 @@ using v8::ObjectTemplate;
 using v8::String;
 using v8::Value;
 
-MyObject::MyObject(double value) : value_(value) {}
+namespace demo {
 
-MyObject::~MyObject() {}
+class MyObject : public node::ObjectWrap {
+ public:
+  static void Init(v8::Local<v8::Object> exports);
+
+ private:
+  explicit MyObject(double value = 0) : value_(value) {}
+  ~MyObject() {}
+  static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void PlusOne(const v8::FunctionCallbackInfo<v8::Value>& args);
+  double value_;
+};
 
 void MyObject::Init(Local<Object> exports) {
   Isolate* isolate = exports->GetIsolate();
@@ -92,13 +83,6 @@ void MyObject::PlusOne(const FunctionCallbackInfo<Value>& args) {
 
   args.GetReturnValue().Set(Number::New(isolate, obj->value_));
 }
-
-}  // namespace demo
-
-namespace demo {
-
-using v8::Local;
-using v8::Object;
 
 void InitAll(Local<Object> exports) { MyObject::Init(exports); }
 
